@@ -1,25 +1,18 @@
-import logo from './logo.svg';
-import './App.css';
+import React from 'react'
+import { Route, Routes } from "react-router-dom";
+import Conversion from './pages/conversion.js';
+import { Extracciones } from './pages/Extracciones.js';
 
-function App() {
+
+export const App = () => {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+    <>
+      <Routes>
+        <Route path="/conversion" element={<Conversion />} />
+        <Route path="/extracciones" element={<Extracciones />} />
+      </Routes>
+    </>
+  )
 }
 
-export default App;
+export default App
