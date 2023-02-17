@@ -2,7 +2,7 @@ import {useState} from 'react';
 import Box from '@mui/material/Box';
 import Slider from '@mui/material/Slider';
 import Button from '@mui/material/Button';
-import { getResumen, postConfig, postMaquinas } from '../api/conversion.api';
+import { postConfig, postMaquinas } from '../api/conversion.api';
 
 
 function valuetext(value) {
@@ -62,11 +62,7 @@ export default function Range(items) {
 
   };
 
-  const handleCheck = () => {
 
-    
-
-  }
 
   function handleClick() {
     // console.log(value[0]);
