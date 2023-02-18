@@ -3,14 +3,15 @@ import { Header } from '../components/Header'
 import { useState } from 'react';
 import Button from '@mui/material/Button';
 import TablaMaquinas from '../components/TablaMaquinas';
-
-
+import { getInfo } from '../api/conversion.api';
 
 export const Extracciones = () => {
 
-  const [maquina, setMaquina] = useState([]);
 
-  const [buttonClicked, setButtonClicked] = useState(false);
+  const [infoMaquinas, setInfoMaquinas] = useState([0])
+  const [maquina, setMaquina] = useState('')
+
+  // const [buttonClicked, setButtonClicked] = useState(false);
 
 
   const handleChange = event => {
@@ -21,10 +22,22 @@ export const Extracciones = () => {
 
   const buscar = () => {
 
-    setButtonClicked(true)
-     
-  }
+    console.log('boton');
+    // setMaquina(props.maq)
 
+      async function findMachine() {
+      
+        const resp = await getInfo(maquina);
+  
+        console.log(resp.data);
+
+          setInfoMaquinas(resp.data);
+  
+      }
+      findMachine();
+
+    }
+     
 
   return (
     <div className='container'>
@@ -36,12 +49,11 @@ export const Extracciones = () => {
         
       </form>
 
-      <Button className='buscar' variant="primary" onClick={buscar} >Buscar</Button>
+      <Button className='buscar' variant="primary" onClick={buscar}>Buscar</Button>
       
       
       <div>
-        {buttonClicked ? <TablaMaquinas maq={maquina}/> : null}
-        
+        <TablaMaquinas info={infoMaquinas}/>
       </div>
 
     </div>
