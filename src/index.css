@@ -39,3 +39,18 @@ code {
     align-items: center;
 }
 
+.select {
+  margin: 20px;
+}
+
+.buscador {
+  display: flex;
+    flex-direction: column;
+    font-size: 20px;
+    font-family: cursive;
+}
+
+table {
+  font-size: 20px;
+  background-color: azure;
+}

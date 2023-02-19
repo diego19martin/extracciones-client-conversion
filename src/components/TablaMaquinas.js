@@ -22,7 +22,10 @@ export default function TablaMaquinas(infoMaquinas) {
 const selectRow = {
   mode: 'checkbox',
   clickToSelect: true,
-  bgColor: '#00BFFF'
+  bgColor: '#00BFFF',
+  onSelect: (row, isSelect, rowIndex, e) => {
+    console.log(row.maquina, isSelect);
+  }
 };
 
 const emptyDataMessage = () => { return 'No Data to Display';}
