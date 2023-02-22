@@ -3,6 +3,7 @@ import Box from '@mui/material/Box';
 import Slider from '@mui/material/Slider';
 import Button from '@mui/material/Button';
 import { postConfig, postMaquinas } from '../api/conversion.api';
+import BootstrapTable from 'react-bootstrap-table-next';
 
 
 function valuetext(value) {
@@ -70,6 +71,23 @@ export default function Range(items) {
     postMaquinas(listadoFinal);
   }
 
+  const columns = [{
+    dataField: 'maquina',
+    text: 'Máquina'
+    },
+    {
+      dataField: 'location',
+      text: 'Location'
+    },{
+      dataField: 'asistentes',
+      text: 'Asistentes'
+    },{
+      dataField: 'finalizada',
+      text: 'Finalizada'
+    }];
+
+    const emptyDataMessage = () => { return 'No Data to Display';}
+
   return (
     <div>
 
@@ -89,10 +107,6 @@ export default function Range(items) {
 
       <div className='divBotones'>
     
-        {/* <Button className='but' variant="contained" color="primary" onClick={handleCheck}>
-          Consultar
-        </Button> */}
-
       </div>
 
       <div>
@@ -104,6 +118,15 @@ export default function Range(items) {
       <Button className='but' variant="contained" color="success" onClick={handleClick} style={{'margin':'30px'}}>
         Confirmar configuración
       </Button>
+
+      <BootstrapTable 
+
+        keyField='maquina'
+        data={ listadoFinal }
+        columns={ columns }
+        noDataIndication={ emptyDataMessage }
+      
+      />
 
     </div>
   );

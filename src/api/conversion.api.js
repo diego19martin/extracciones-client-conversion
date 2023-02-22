@@ -24,3 +24,10 @@ export const getInfo = async(maquina)=> {
     return res;
 }
 
+export const postSelect = async(selectInfo)=> {
+    console.log(selectInfo);
+    const res = await axios.post(`${host}/postSelect`, selectInfo );
+    return res;
+}
+
+

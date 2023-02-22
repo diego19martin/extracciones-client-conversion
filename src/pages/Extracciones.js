@@ -9,8 +9,11 @@ import Select from 'react-select'
 export const Extracciones = () => {
 
 
-  const [infoMaquinas, setInfoMaquinas] = useState([0])
-  const [maquina, setMaquina] = useState('')
+  const [infoMaquinas, setInfoMaquinas] = useState([0]);
+  const [maquina, setMaquina] = useState('');
+  const [extracciones, setExtracciones] = useState([])
+
+  var asist = [];
 
   // const [buttonClicked, setButtonClicked] = useState(false);
 
@@ -50,7 +53,18 @@ export const Extracciones = () => {
     }
 
     const handleChangeSelect = (value) => {
-        console.log(value);
+
+        // console.log(value[1]);
+
+        asist = [
+           value[0],
+           value[1]
+        ]
+
+        setExtracciones(asist);
+
+        console.log(asist);
+
     }
      
 
@@ -84,7 +98,7 @@ export const Extracciones = () => {
       
       
       <div>
-        <TablaMaquinas info={infoMaquinas}/>
+        <TablaMaquinas info={infoMaquinas} ext={extracciones} />
       </div>
 
     </div>
