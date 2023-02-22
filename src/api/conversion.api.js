@@ -30,4 +30,9 @@ export const postSelect = async(selectInfo)=> {
     return res;
 }
 
+export const getTable = async()=> {
+    const res = await axios.get(`${host}/getResumen`);
+    return res;
+}
+
 

@@ -1,12 +1,30 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
-import { postMaquinas } from "../api/conversion.api";
+import { getTable, postMaquinas } from "../api/conversion.api";
 import Range from "../components/Range.js"
 import { Header } from "../components/Header";
+import BootstrapTable from 'react-bootstrap-table-next';
 
 
 function Conversion() {
   const [items, setItems] = useState([0]);
+  const [Table, setTable] = useState([0])
+
+  useEffect(() => {
+
+    let interval = setInterval(() => {
+  
+        async function info() {
+        const respuesta = await getTable();
+    
+        setTable(respuesta.data)
+        
+      }
+  
+      info()
+    }, 5000) 
+  }, [])
+  
 
   const readExcel = (file) => {
     const promise = new Promise((resolve, reject) => {
@@ -40,11 +58,29 @@ function Conversion() {
 
   const handleClick = () => {
 
-    // console.log('hola');
-    // console.log(items);
     postMaquinas(items);
    
   }   
+
+  const columns = [{
+    dataField: 'maquina',
+    text: 'Máquina'
+    },
+    {
+      dataField: 'location',
+      text: 'Location'
+    },{
+      dataField: 'asistente1',
+      text: 'Asistente 1'
+    },{
+      dataField: 'asistente2',
+      text: 'Asistente 2'
+    },{
+      dataField: 'finalizado',
+      text: 'Finalizada'
+    }];
+
+  const emptyDataMessage = () => { return 'Sin datos para mostrar';}
 
   return (
     <div className="container">
@@ -61,7 +97,18 @@ function Conversion() {
     </div>
       <Range props={items}/>
 
+      <div>
+          <BootstrapTable
+          keyField='maquina'
+          data={ Table }
+          columns={ columns }
+          noDataIndication={ emptyDataMessage }
+        />
+      </div>
+
     </div>
+
+    
   );
 }
 

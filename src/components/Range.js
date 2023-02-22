@@ -71,22 +71,6 @@ export default function Range(items) {
     postMaquinas(listadoFinal);
   }
 
-  const columns = [{
-    dataField: 'maquina',
-    text: 'Máquina'
-    },
-    {
-      dataField: 'location',
-      text: 'Location'
-    },{
-      dataField: 'asistentes',
-      text: 'Asistentes'
-    },{
-      dataField: 'finalizada',
-      text: 'Finalizada'
-    }];
-
-    const emptyDataMessage = () => { return 'No Data to Display';}
 
   return (
     <div>
@@ -118,15 +102,6 @@ export default function Range(items) {
       <Button className='but' variant="contained" color="success" onClick={handleClick} style={{'margin':'30px'}}>
         Confirmar configuración
       </Button>
-
-      <BootstrapTable 
-
-        keyField='maquina'
-        data={ listadoFinal }
-        columns={ columns }
-        noDataIndication={ emptyDataMessage }
-      
-      />
 
     </div>
   );

@@ -51,7 +51,7 @@ const selectRow = {
   }
 };
 
-const emptyDataMessage = () => { return 'No Data to Display';}
+const emptyDataMessage = () => { return 'Sin datos para mostrar';}
 
   return (
   
