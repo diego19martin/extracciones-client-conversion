@@ -23,7 +23,7 @@ code {
     
 }
 
-.container {
+.conversion {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -31,6 +31,10 @@ code {
 
 .inputFile {
   padding: 70px;
+}
+
+.fecha {
+  margin: 20px;
 }
 
 .divBotones{
@@ -53,4 +57,29 @@ code {
 table {
   font-size: 20px;
   background-color: azure;
+}
+
+.infoContainer {
+  text-align: center;
+}
+
+
+.botonInput {
+  background-color: burlywood;
+}
+
+.range {
+  border: 5px solid #a26707;
+    border-radius: 20px;
+    text-align: center;
+    margin: 0px;
+    padding: 40px
+}
+
+.info {
+  border: 5px solid #a26707;
+  border-radius: 20px;
+  text-align: center;
+  margin: 40px;
+  background-color: cornsilk;
 }

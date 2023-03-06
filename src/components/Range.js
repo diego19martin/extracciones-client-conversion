@@ -4,6 +4,7 @@ import Slider from '@mui/material/Slider';
 import Button from '@mui/material/Button';
 import { postConfig, postMaquinas } from '../api/conversion.api';
 import BootstrapTable from 'react-bootstrap-table-next';
+import Swal from 'sweetalert2'
 
 
 function valuetext(value) {
@@ -13,10 +14,12 @@ function valuetext(value) {
 
 export default function Range(items) {
 
+  // console.log(items);
+
   var extraer = 0;
   var sumTotal = 0;
 
-  const [value, setValue] = useState(10000);
+  const [value, setValue] = useState(0);
   const [Resumen, setResumen] = useState([0]);
   const [cant, SetCant] = useState(0);
   const [Total, SetTotal] = useState(0)
@@ -28,23 +31,23 @@ export default function Range(items) {
 
     setValue(newValue);
 
-    // console.log(newValue);
    
     var i = 0;
     var listadoExtraer = [];
 
-    // console.log(Resumen.prop s);
+    console.log(Resumen);
 
     for (i=0; i<Resumen.props.length; i++) {
       if (Resumen.props[i].bill > value) {
-        console.log(Resumen.props[i].bill);
+        // console.log(Resumen.props[i].bill);
         extraer ++
         sumTotal = sumTotal + Resumen.props[i].bill
         listadoExtraer.push(
           {
             'maquina' : Resumen.props[i].machine,
             'location' : Resumen.props[i].location,
-            'bill' : Resumen.props[i].bill
+            'bill' : Resumen.props[i].bill,
+            'fecha' : Resumen.props[i].fecha
           } 
         )
       }
@@ -66,37 +69,50 @@ export default function Range(items) {
 
 
   function handleClick() {
-    // console.log(value[0]);
-    postConfig(value);
-    postMaquinas(listadoFinal);
+    // console.log(value);
+    // console.log(listadoFinal);
+    console.log(listadoFinal.length);
+    if(listadoFinal.length>1){ 
+      postConfig(value);
+      postMaquinas(listadoFinal);
+    }else{
+      Swal.fire({
+        icon: 'error',
+        title: 'Atención!',
+        text: 'No hay archivo seleccionado',
+      })
+    }
+    
   }
 
-
+  var totalFormat = Total.toLocaleString('en-US');
+  console.log(totalFormat);
+ 
   return (
-    <div>
+  
+  <div className='infoContainer'>
 
+  <div className='range'>
     <h3>Deslice para seleccionar limite de dinero a extraer por máquina</h3>
-    <Box sx={{ width: 500 }}>
-      <Slider
-        getAriaLabel={() => 'Temperature range'}
-        value={value}
-        onChange={handleChange}
-        valueLabelDisplay="auto"
-        getAriaValueText={valuetext}
-        min={0}
-        max={100000}
-        step={5000}
-      />
-    </Box>
-
-      <div className='divBotones'>
+      <Box sx={{ width: 500 }}>
+        <Slider
+          getAriaLabel={() => 'Temperature range'}
+          value={value}
+          onChange={handleChange}
+          valueLabelDisplay="auto"
+          getAriaValueText={valuetext}
+          min={0}
+          max={100000}
+          step={5000}
+        />
+      </Box>
+    <h3>Limite de dinero seleccionado $ {value.toLocaleString('en-US')}</h3>
+  </div>
     
-      </div>
-
-      <div>
-        <h3>Limite de dinero seleccionado {value}</h3>
-        <h1>Cantidad de maquinas a extraer {cant}</h1>
-        <h1>Dinero total a extraer $ {Total}</h1>
+      
+      <div className='info'>
+        <h3>Cantidad de maquinas a extraer {cant}</h3>
+        <h3>Dinero total a extraer $ {totalFormat}</h3>
       </div>
 
       <Button className='but' variant="contained" color="success" onClick={handleClick} style={{'margin':'30px'}}>

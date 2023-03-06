@@ -4,7 +4,9 @@ import { useState } from 'react';
 import Button from '@mui/material/Button';
 import TablaMaquinas from '../components/TablaMaquinas';
 import { getInfo } from '../api/conversion.api';
-import Select from 'react-select'
+import Select from 'react-select';
+import Swal from 'sweetalert2';
+
 
 export const Extracciones = () => {
 
@@ -30,7 +32,15 @@ export const Extracciones = () => {
 
   const handleChange = event => {
 
+    if(extracciones[1]!= undefined){
     setMaquina(event.target.value);
+    } else {
+      Swal.fire({
+        icon: 'error',
+        title: 'Atención!',
+        text: 'Debe seleccionar dos asistentes',
+      })
+    }
     
   }
 
@@ -65,6 +75,8 @@ export const Extracciones = () => {
 
         console.log(asist);
 
+        console.log(asist.length);
+
     }
      
 
@@ -77,7 +89,7 @@ export const Extracciones = () => {
       <Select 
         isMulti
         className='select'
-        placeholder='Seleccione Asistene 1'
+        placeholder='Seleccione Asistenes'
         classNames={'basic-multi-select'}
         classNamePrefix="select"
         options = {asistentes}   

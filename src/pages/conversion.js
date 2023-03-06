@@ -8,9 +8,10 @@ import BootstrapTable from 'react-bootstrap-table-next';
 
 function Conversion() {
   const [items, setItems] = useState([0]);
-  const [Table, setTable] = useState([0])
+  const [Table, setTable] = useState([0]);
 
   useEffect(() => {
+    
 
     let interval = setInterval(() => {
   
@@ -24,6 +25,20 @@ function Conversion() {
       info()
     }, 5000) 
   }, [])
+
+ 
+
+  const rowStyle2 = (row, rowIndex) => {
+    const style = {};
+    // console.log(row);
+    if (row.finalizado === 'Pendiente') {
+      style.backgroundColor = 'rgb(188 188 188)';
+    } else {
+      style.backgroundColor = '#3aa674';
+    }
+  
+    return style;
+  };
   
 
   const readExcel = (file) => {
@@ -43,6 +58,8 @@ function Conversion() {
         const data = XLSX.utils.sheet_to_json(ws);
 
         resolve(data);
+
+                
       };
 
       fileReader.onerror = (error) => {
@@ -53,37 +70,52 @@ function Conversion() {
     promise.then((d) => {
       // console.log(d);
       setItems(d);
+      
     });
   };
 
-  const handleClick = () => {
-
-    postMaquinas(items);
-   
-  }   
 
   const columns = [{
     dataField: 'maquina',
-    text: 'Máquina'
+    text: 'Máquina',
+    headerStyle: {
+      backgroundColor: '#8ec9ff'
+    }
     },
     {
       dataField: 'location',
-      text: 'Location'
+      text: 'Location',
+      headerStyle: {
+        backgroundColor: '#8ec9ff'
+      }
     },{
       dataField: 'asistente1',
-      text: 'Asistente 1'
+      text: 'Asistente 1',
+      headerStyle: {
+        backgroundColor: '#8ec9ff'
+      }
     },{
       dataField: 'asistente2',
-      text: 'Asistente 2'
+      text: 'Asistente 2',
+      headerStyle: {
+        backgroundColor: '#8ec9ff'
+      }
     },{
       dataField: 'finalizado',
-      text: 'Finalizada'
+      text: 'Finalizada',
+      headerStyle: {
+        backgroundColor: '#8ec9ff'
+      }
     }];
 
   const emptyDataMessage = () => { return 'Sin datos para mostrar';}
 
+  var dia = new Date(Table[0].fecha)
+  dia = dia.toLocaleDateString();
+
+ 
   return (
-    <div className="container">
+    <div className="conversion">
       <Header />
       <div className="inputFile">
       <input
@@ -92,8 +124,11 @@ function Conversion() {
         const file = e.target.files[0];
         readExcel(file);
         }}
+        className='botonInput'
       />
-      <button type="button" onClick={handleClick}>Cargar listado</button>
+
+    <h2 className="fecha">Fecha de lista cargada: {dia}</h2>
+    
     </div>
       <Range props={items}/>
 
@@ -103,6 +138,7 @@ function Conversion() {
           data={ Table }
           columns={ columns }
           noDataIndication={ emptyDataMessage }
+          rowStyle={ rowStyle2 }
         />
       </div>
 
