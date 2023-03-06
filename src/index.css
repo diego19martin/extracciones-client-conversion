@@ -5,6 +5,10 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-image: url('./img/bg.jpg');
+  background-repeat: round;
+  color: black;
+  text-align: center;
 }
 
 code {
@@ -12,14 +16,18 @@ code {
     monospace;
 }
 
+.container {
+  
+}
+
 .headerConv {
   height: 60px;
-  background-color: aquamarine;
   text-align: center;
   font-size: 25px;
   margin: 0 auto;
   color: rgb(38, 0, 119);
   width: 100%;
+  background-color: #ffbf7f6e;
     
 }
 
@@ -73,7 +81,8 @@ table {
     border-radius: 20px;
     text-align: center;
     margin: 0px;
-    padding: 40px
+    padding: 40px;
+    background-color: aliceblue;
 }
 
 .info {

@@ -81,9 +81,9 @@ export const Extracciones = () => {
      
 
   return (
+    <>
+    <Header />
     <div className='container'>
-      <Header />
-
       <form className='form-buscador'>
 
       <Select 
@@ -114,5 +114,6 @@ export const Extracciones = () => {
       </div>
 
     </div>
+    </>
   )
 }
