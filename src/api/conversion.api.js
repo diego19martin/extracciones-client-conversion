@@ -17,6 +17,7 @@ export const postConfig = async(configuracion)=>{
 
 export const getResumen = async()=>{
     await axios.get(`${host}/getResumen`); 
+    return res;
 }
 
 export const getInfo = async(maquina)=> {
