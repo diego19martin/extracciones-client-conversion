@@ -7,7 +7,7 @@ import Swal from 'sweetalert2';
 import { v4 } from 'uuid';
 
 const TablaMaquinas = (props) => {
-
+  
   var infoMaquinas=Object.values(props.info)
   // console.log(infoMaquinas);
 
@@ -16,11 +16,27 @@ const TablaMaquinas = (props) => {
 
   const [Extracciones, setExtracciones] = useState(['']);
   const [Select, setSelect] = useState(1);
-  var [MaquinasExtraer, setMaquinasExtraer] = useState([''])
+  var [MaquinasExtraer, setMaquinasExtraer] = useState(['']);
+  const [SelectedAyrray, setSelectedAyrray] = useState('')
 
   useEffect(() => {
 
-    setMaquinasExtraer(infoMaquinas)
+      setMaquinasExtraer(infoMaquinas)
+
+      var i = 0;
+  
+      var selArray =[];
+
+      for(i=0; i< infoMaquinas.length; i++) {
+        if(infoMaquinas[i].finalizado==='Extraida'){
+          selArray.push(infoMaquinas[i].id);
+        }
+      }
+
+      // console.log(selArray);
+
+      setSelectedAyrray(selArray)
+      console.log(SelectedAyrray);
     
 
   }, infoMaquinas)
@@ -29,8 +45,7 @@ const TablaMaquinas = (props) => {
 
   if(infoMaquinas.length > 1) {
 
-    // console.log('mayor');
-
+  console.log(SelectedAyrray);
   const columns = [{
   dataField: 'maquina',
   text: 'Máquina'
@@ -50,7 +65,7 @@ const TablaMaquinas = (props) => {
     mode: 'checkbox',
     clickToSelect: true,
     bgColor: '#00BFFF',
-    selected: [44],
+    selected: SelectedAyrray ,
 
   onSelect: (row, isSelect, rowIndex, e) => {
 
