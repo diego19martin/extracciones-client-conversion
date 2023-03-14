@@ -102,7 +102,7 @@ function Conversion() {
       }
     },{
       dataField: 'finalizado',
-      text: 'Finalizada',
+      text: 'Estado',
       headerStyle: {
         backgroundColor: '#8ec9ff'
       }
