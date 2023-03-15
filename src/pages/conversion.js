@@ -33,8 +33,10 @@ function Conversion() {
     // console.log(row);
     if (row.finalizado === 'Pendiente') {
       style.backgroundColor = 'rgb(188 188 188)';
-    } else {
+    } else if (row.finalizado === 'Completa') {
       style.backgroundColor = '#3aa674';
+    } else {
+      style.backgroundColor = 'red'
     }
   
     return style;
@@ -103,6 +105,12 @@ function Conversion() {
     },{
       dataField: 'finalizado',
       text: 'Estado',
+      headerStyle: {
+        backgroundColor: '#8ec9ff'
+      }
+    },{
+      dataField: 'comentario',
+      text: 'Comentario',
       headerStyle: {
         backgroundColor: '#8ec9ff'
       }

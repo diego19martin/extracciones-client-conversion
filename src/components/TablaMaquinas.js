@@ -69,52 +69,108 @@ const TablaMaquinas = (props) => {
 
   onSelect: (row, isSelect, rowIndex, e) => {
 
-    Swal.fire({
-      title: 'Seleccione:',
-      showDenyButton: true,
-      showCancelButton: false,
-      confirmButtonText: 'Completa',
-      denyButtonText: `No realizada`,
-    }).then((result) => {
-      /* Read more about isConfirmed, isDenied below */
-      if (result.isConfirmed) {
-        // console.log('h');
-      
-      } else if (result.isDenied) {
-        Swal.fire({
-          title: 'Seleccione:',
-          input: 'text'
+    setSelectedAyrray('');
+
+    if(isSelect===true){
+
+      Swal.fire({
+        title: 'Seleccione una opción de extracción:',
+        showDenyButton: true,
+        showCancelButton: false,
+        confirmButtonText: 'Completa',
+        denyButtonText: `No realizada`,
       }).then((result) => {
-        console.log(result.value);
-      }) 
-    }})
+        /* Read more about isConfirmed, isDenied below */
+        if (result.isConfirmed) {
 
+          selectInfo.push({
+            'maquina': row,
+            'finalizado': isSelect,
+            'asistente1': ext[0].value,
+            'asistente2': ext[1].value
+          });
+      
+          setExtracciones(ext)
+          postSelect(selectInfo);
+      
+          if(isSelect){
+          setSelect(Select + 1)
+          } else {
+            setSelect(Select - 1)
+          }
+         
+          console.log(Select);
+      
+          // console.log(infoMaquinas);
+         
+        } else if (result.isDenied) {
+          Swal.fire({
+            title: 'Motivo',
+            input: 'text'
+        }).then((result) => {
+          console.log(result.value);
 
+          selectInfo.push({
+            'maquina': row,
+            'finalizado': 'No Disponible',
+            'asistente1': ext[0].value,
+            'asistente2': ext[1].value,
+            'comentario': result.value
+          });
+      
+          setExtracciones(ext)
+          postSelect(selectInfo);
 
-    console.log(row.maquina, isSelect, rowIndex);
+          // console.log(selectInfo);
+      
+          if(isSelect){
+          setSelect(Select + 1)
+          } else {
+            setSelect(Select - 1)
+          }
+         
+          console.log(Select);
+
+        }) 
+      } else {
+        selectInfo.push({
+            'maquina': row,
+            'finalizado': isSelect,
+            'asistente1': ext[0].value,
+            'asistente2': ext[1].value
+          });
+      
+          setExtracciones(ext)
+          postSelect(selectInfo);
+      
+          if(isSelect){
+          setSelect(Select + 1)
+          } else {
+            setSelect(Select - 1)
+          }
+ 
+      }
     
-    selectInfo.push({
-      'maquina': row,
-      'finalizado': isSelect,
-      'asistente1': ext[0].value,
-      'asistente2': ext[1].value
-    });
-
-    setExtracciones(ext)
-    postSelect(selectInfo);
-
-    if(isSelect){
-    setSelect(Select + 1)
+    })
     } else {
-      setSelect(Select - 1)
-    }
-   
-    console.log(Select);
-
-    // console.log(infoMaquinas);
-   
-  }
+      selectInfo.push({
+        'maquina': row,
+        'finalizado': isSelect,
+        'asistente1': ext[0].value,
+        'asistente2': ext[1].value
+      });
   
+      setExtracciones(ext)
+      postSelect(selectInfo);
+  
+      if(isSelect){
+      setSelect(Select + 1)
+      } else {
+        setSelect(Select - 1)
+      }
+    }
+    // console.log(row.maquina, isSelect, rowIndex); 
+  }  
 };
 
 if (Select === (MaquinasExtraer.length + 1)){
