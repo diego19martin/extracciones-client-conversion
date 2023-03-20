@@ -9,6 +9,12 @@ import BootstrapTable from 'react-bootstrap-table-next';
 function Conversion() {
   const [items, setItems] = useState([0]);
   const [Table, setTable] = useState([0]);
+  const [Restante, setRestante] = useState(0);
+  const [NoPudo, setNoPudo] = useState(0);
+
+  var i = 0;
+  var pendiente = 0;
+  var noDisponible = 1;
 
   useEffect(() => {
     
@@ -19,12 +25,30 @@ function Conversion() {
         const respuesta = await getTable();
     
         setTable(respuesta.data)
-        
+
+        // console.log(respuesta.data);
+
+       
       }
   
       info()
     }, 5000) 
   }, [])
+
+  useEffect(() => {
+    
+  for(i=0; i<Table.length; i++){
+    if(Table[i].finalizado==='Pendiente' || Table[i].finalizado==='No disponible'){
+      setRestante(pendiente ++);
+    }
+    if(Table[i].finalizado==='No Disponible'){
+      setNoPudo(noDisponible++);
+    }
+
+  }
+   
+  }, Table)
+  
 
  
 
@@ -139,6 +163,11 @@ function Conversion() {
     
     </div>
       <Range props={items}/>
+
+      <div>
+        <h3 className="restante">Maquinas restantes para finalizar extracción: {Restante}</h3>
+        <h3 className="noPudo">No se puedieron extraer: {NoPudo}</h3>
+      </div>
 
       <div>
           <BootstrapTable
