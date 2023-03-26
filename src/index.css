@@ -17,7 +17,7 @@ code {
 }
 
 .container {
-  
+  width: 45%;
 }
 
 .headerConv {
@@ -62,9 +62,12 @@ code {
     font-family: cursive;
 }
 
+.react-bootstrap-table
 table {
   font-size: 20px;
   background-color: azure;
+  width: 90%;
+  margin: 0 auto;
 }
 
 .infoContainer {
@@ -106,5 +109,43 @@ table {
   padding: 5px;
   border-radius: 15px;
   color: white;
+}
+
+@media (max-width: 720px) {
+
+  table {
+    font-size: 6px;
+  }
+
+  .range {
+    width: 60%;
+    margin: 0 auto;
+  }
+
+  .info {
+    width: 60%;
+    margin: 20px auto;
+  }
+
+  .restante {
+    width: 90%;
+    margin: 10px auto;
+  }
+
+  .noPudo {
+    width: 90%;
+    margin: 10px auto;
+
+  }
+
+  .MuiBox-root 
+    .css-14pt78w-MuiSlider-rail {
+      width: 50%;
+    
+  }
+
+  .container {
+    width: 100%;
+  }
 }
 
