@@ -114,7 +114,7 @@ table {
 @media (max-width: 720px) {
   .react-bootstrap-table
   table {
-    font-size: 6px;
+    font-size: 10px;
   }
 
   .range {

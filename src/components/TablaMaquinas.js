@@ -7,12 +7,17 @@ import Swal from 'sweetalert2';
 import { v4 } from 'uuid';
 
 const TablaMaquinas = (props) => {
+
+  
+  console.log(props);
   
   var infoMaquinas=Object.values(props.info)
   // console.log(infoMaquinas);
 
   var ext = Object.values(props.ext)
   // console.log(ext);
+
+  
 
   const [Extracciones, setExtracciones] = useState(['']);
   const [Select, setSelect] = useState(1);
@@ -201,6 +206,7 @@ if (Select === (MaquinasExtraer.length + 1)){
 
 // console.log(infoMaquinas);
 console.log(MaquinasExtraer);
+
 
 const emptyDataMessage = () => { return 'Sin datos para mostrar';}
 
