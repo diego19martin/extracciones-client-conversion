@@ -115,10 +115,15 @@ table {
   .react-bootstrap-table
   table {
     font-size: 9px;
+    width: 100%;
+  }
+
+  .inputFile{
+    width: 130%;
   }
 
   .range {
-    width: 60%;
+    width: 90%;
     margin: 0 auto;
   }
 
@@ -141,20 +146,33 @@ table {
   .range
   .MuiBox-root 
     .css-14pt78w-MuiSlider-rail {
-      width: 50%;
+      width: 100%;
     
+  }
+
+  .range
+  .MuiBox-root
+  .css-187mznn-MuiSlider-root {
+    width: 50%;
+    float: left;
   }
 
   .container {
     width: 100%;
   }
 
-  .react-bootstrap-table
-table {
-  font-size: 22px;
-  background-color: azure;
-  width: 100%;
-  margin: 0 auto;
-}
+  .headerclass {
+    font-size: 20px;
+  }
+
+  .rowClass {
+    font-size: 20px;
+    
+  }
+
+  .infoContainer {
+    width: 95%;
+  }
+
 }
 

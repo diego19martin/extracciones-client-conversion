@@ -218,6 +218,8 @@ const emptyDataMessage = () => { return 'Sin datos para mostrar';}
       columns={ columns }
       selectRow={ selectRow }
       noDataIndication={ emptyDataMessage }
+      rowClasses={'rowClass'}
+      headerClasses={'headerclass'}
       
     />
 
