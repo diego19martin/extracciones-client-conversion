@@ -114,7 +114,7 @@ table {
 @media (max-width: 720px) {
   .react-bootstrap-table
   table {
-    font-size: 10px;
+    font-size: 9px;
   }
 
   .range {
@@ -148,5 +148,13 @@ table {
   .container {
     width: 100%;
   }
+
+  .react-bootstrap-table
+table {
+  font-size: 22px;
+  background-color: azure;
+  width: 100%;
+  margin: 0 auto;
+}
 }
 
