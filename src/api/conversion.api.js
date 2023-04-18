@@ -6,7 +6,7 @@ const host = process.env.REACT_APP_HOST;
 
 export const postMaquinas = async(listado)=>{
 
-    // console.log(listado);
+    console.log(listado);
 
     await axios.post(`${host}/postMaquinas`, listado);
 }

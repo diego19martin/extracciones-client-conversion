@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useState, useEffect} from 'react';
 import Box from '@mui/material/Box';
 import Slider from '@mui/material/Slider';
 import Button from '@mui/material/Button';
@@ -23,7 +23,9 @@ export default function Range(items) {
   const [Resumen, setResumen] = useState([0]);
   const [cant, SetCant] = useState(0);
   const [Total, SetTotal] = useState(0)
-  const [listadoFinal, setListadoFinal] = useState([0])
+  const [listadoFinal, setListadoFinal] = useState([{maquina: 1}])
+  const [Restante, setRestante] = useState(0);
+  const [NoPudo, setNoPudo] = useState(0);
 
   const handleChange = (event, newValue) => {
 
@@ -35,7 +37,7 @@ export default function Range(items) {
     var i = 0;
     var listadoExtraer = [];
 
-    console.log(Resumen);
+    console.log(Resumen.props);
 
     for (i=0; i<Resumen.props.length; i++) {
       if (Resumen.props[i].bill > value) {
@@ -47,7 +49,8 @@ export default function Range(items) {
             'maquina' : Resumen.props[i].machine,
             'location' : Resumen.props[i].location,
             'bill' : Resumen.props[i].bill,
-            'fecha' : Resumen.props[i].fecha
+            'fecha' : Resumen.props[i].fecha,
+            'estado': 'Pendiente'
           } 
         )
       }
@@ -71,10 +74,12 @@ export default function Range(items) {
   function handleClick() {
     // console.log(value);
     // console.log(listadoFinal);
+    console.log(Resumen);
+    postMaquinas(Resumen.props);
     console.log(listadoFinal.length);
     if(listadoFinal.length>1){ 
       postConfig(value);
-      postMaquinas(listadoFinal);
+      
     }else{
       Swal.fire({
         icon: 'error',
@@ -87,6 +92,91 @@ export default function Range(items) {
 
   var totalFormat = Total.toLocaleString('en-US');
   console.log(totalFormat);
+
+  const columns = [{
+    dataField: 'maquina',
+    text: 'Máquina',
+    headerStyle: {
+      backgroundColor: '#8ec9ff'
+    }
+    },
+    {
+      dataField: 'location',
+      text: 'Location',
+      headerStyle: {
+        backgroundColor: '#8ec9ff'
+      }
+    },{
+      dataField: 'asistente1',
+      text: 'Asistente 1',
+      headerStyle: {
+        backgroundColor: '#8ec9ff'
+      }
+    },{
+      dataField: 'asistente2',
+      text: 'Asistente 2',
+      headerStyle: {
+        backgroundColor: '#8ec9ff'
+      }
+    },{
+      dataField: 'estado',
+      text: 'Estado',
+      headerStyle: {
+        backgroundColor: '#8ec9ff'
+      }
+    },{
+      dataField: 'comentario',
+      text: 'Comentario',
+      headerStyle: {
+        backgroundColor: '#8ec9ff'
+      }
+    }];
+
+  const emptyDataMessage = () => { return 'Sin datos para mostrar';}
+
+  if(listadoFinal[0].fecha !== undefined){
+  var dia = new Date(listadoFinal[0].fecha)
+  dia = dia.toLocaleDateString();
+  
+  }
+
+  console.log(listadoFinal);
+
+  useEffect(() => {
+
+    var i = 0;
+    var pendiente = 0;
+    var noDisponible = 1;
+    
+    for(i=0; i<listadoFinal.length; i++){
+      if(listadoFinal[i].finalizado==='Pendiente' || listadoFinal[i].finalizado==='No disponible'){
+        setRestante(pendiente ++);
+      }
+      if(listadoFinal[i].finalizado==='No Disponible'){
+        setNoPudo(noDisponible++);
+      }
+  
+    }
+     
+    }, [listadoFinal])
+    
+  
+    const rowStyle2 = (row, rowIndex) => {
+      const style = {};
+      // console.log(row);
+      if (row.finalizado === 'Pendiente') {
+        style.backgroundColor = 'rgb(188 188 188)';
+      } else if (row.finalizado === 'Completa') {
+        style.backgroundColor = '#3aa674';
+      } else {
+        style.backgroundColor = 'red'
+      }
+    
+      return style;
+    };
+    
+  console.log(listadoFinal);
+
  
   return (
   
@@ -118,6 +208,18 @@ export default function Range(items) {
       <Button className='but' variant="contained" color="success" onClick={handleClick} style={{'margin':'30px'}}>
         Confirmar configuración
       </Button>
+
+      <div>
+          <BootstrapTable
+          keyField='maquina'
+          data={ listadoFinal }
+          columns={ columns }
+          noDataIndication={ emptyDataMessage }
+          rowStyle={ rowStyle2 }
+        />
+      </div>
+
+
 
     </div>
   );
