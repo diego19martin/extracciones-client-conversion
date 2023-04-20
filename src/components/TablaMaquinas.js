@@ -61,7 +61,7 @@ const TablaMaquinas = (props) => {
   },
   {
     dataField: 'finalizado',
-    text: 'Extraida'
+    text: 'Extracción'
   }];
 
   var selectInfo = [];

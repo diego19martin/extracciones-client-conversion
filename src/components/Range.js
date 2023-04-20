@@ -2,7 +2,7 @@ import {useState, useEffect} from 'react';
 import Box from '@mui/material/Box';
 import Slider from '@mui/material/Slider';
 import Button from '@mui/material/Button';
-import { postConfig, postMaquinas } from '../api/conversion.api';
+import { getTable, postConfig, postMaquinas } from '../api/conversion.api';
 import BootstrapTable from 'react-bootstrap-table-next';
 import Swal from 'sweetalert2'
 
@@ -16,14 +16,12 @@ export default function Range(items) {
 
   // console.log(items);
 
-  var extraer = 0;
-  var sumTotal = 0;
-
   const [value, setValue] = useState(0);
   const [Resumen, setResumen] = useState([0]);
   const [cant, SetCant] = useState(0);
   const [Total, SetTotal] = useState(0)
-  const [listadoFinal, setListadoFinal] = useState([{maquina: 1}])
+  const [listadoFinal, setListadoFinal] = useState([{maquina: 1, fecha: 0, estado:''}])
+  const  [listadoExtraer, setListadoExtraer] = useState([{maquina: 1, fecha: 0, estado:''}])
   const [Restante, setRestante] = useState(0);
   const [NoPudo, setNoPudo] = useState(0);
 
@@ -33,10 +31,10 @@ export default function Range(items) {
 
     setValue(newValue);
 
-   
     var i = 0;
-    var listadoExtraer = [];
-
+    var extraer=0;
+    var sumTotal=0;
+    
     console.log(Resumen.props);
 
     for (i=0; i<Resumen.props.length; i++) {
@@ -44,25 +42,16 @@ export default function Range(items) {
         // console.log(Resumen.props[i].bill);
         extraer ++
         sumTotal = sumTotal + Resumen.props[i].bill
-        listadoExtraer.push(
-          {
-            'maquina' : Resumen.props[i].machine,
-            'location' : Resumen.props[i].location,
-            'bill' : Resumen.props[i].bill,
-            'fecha' : Resumen.props[i].fecha,
-            'estado': 'Pendiente'
-          } 
-        )
+        
       }
     }
 
-    console.log(listadoExtraer);
+    // console.log(listadoExtraer);
     
     // console.log(value);
     SetCant(extraer);
     SetTotal(sumTotal);
-    setListadoFinal(listadoExtraer);
-
+    
     // console.log('Cantidad de maquinas a extraer ' + extraer);
     // console.log('Total de dinero a extraer $' + sumTotal);
 
@@ -72,12 +61,36 @@ export default function Range(items) {
 
 
   function handleClick() {
+
     // console.log(value);
     // console.log(listadoFinal);
     console.log(Resumen);
     postMaquinas(Resumen.props);
-    console.log(listadoFinal.length);
-    if(listadoFinal.length>1){ 
+
+    let interval = setInterval(() => {
+
+        
+      async function infoFinal() {
+
+      const resp = await getTable();
+  
+      setListadoExtraer(resp.data)
+
+      // console.log(resp.data);
+
+    }
+
+    infoFinal()
+
+    
+  }, 5000) 
+
+  // console.log(listadoExtraer);
+
+
+  console.log(Resumen.props.length);
+  
+    if(Resumen.props.length>1){ 
       postConfig(value);
       
     }else{
@@ -89,6 +102,38 @@ export default function Range(items) {
     }
     
   }
+
+
+  useEffect(() => {
+
+    var listadoFiltrado = [];
+
+    var i = 0;
+
+    console.log(listadoExtraer);
+    
+    for (i=0; i<listadoExtraer.length; i++) {
+      if (listadoExtraer[i].bill > value) {
+             
+        listadoFiltrado.push(
+          {
+            'maquina' : listadoExtraer[i].maquina,
+            'location' : listadoExtraer[i].location,
+            'bill' : listadoExtraer[i].bill,
+            'fecha' : listadoExtraer[i].fecha,
+            'estado': listadoExtraer[i].finalizado
+          } 
+        )
+      }
+    }
+
+    setListadoFinal(listadoFiltrado)
+
+    // console.log(listadoFinal);
+    
+  }, [listadoExtraer])
+  
+
 
   var totalFormat = Total.toLocaleString('en-US');
   console.log(totalFormat);
@@ -120,7 +165,7 @@ export default function Range(items) {
       }
     },{
       dataField: 'estado',
-      text: 'Estado',
+      text: 'Extracción',
       headerStyle: {
         backgroundColor: '#8ec9ff'
       }
@@ -134,39 +179,35 @@ export default function Range(items) {
 
   const emptyDataMessage = () => { return 'Sin datos para mostrar';}
 
-  if(listadoFinal[0].fecha !== undefined){
-  var dia = new Date(listadoFinal[0].fecha)
-  dia = dia.toLocaleDateString();
   
-  }
-
-  console.log(listadoFinal);
+  // console.log(listadoFinal);
 
   useEffect(() => {
 
     var i = 0;
     var pendiente = 0;
     var noDisponible = 1;
-    
+  
+      
     for(i=0; i<listadoFinal.length; i++){
-      if(listadoFinal[i].finalizado==='Pendiente' || listadoFinal[i].finalizado==='No disponible'){
+      if(listadoFinal[i].estado==='Pendiente' || listadoFinal[i].estado==='No disponible'){
         setRestante(pendiente ++);
       }
-      if(listadoFinal[i].finalizado==='No Disponible'){
+      if(listadoFinal[i].estado==='No Disponible'){
         setNoPudo(noDisponible++);
       }
   
     }
-     
+       
     }, [listadoFinal])
     
   
     const rowStyle2 = (row, rowIndex) => {
       const style = {};
       // console.log(row);
-      if (row.finalizado === 'Pendiente') {
+      if (row.estado === 'Pendiente') {
         style.backgroundColor = 'rgb(188 188 188)';
-      } else if (row.finalizado === 'Completa') {
+      } else if (row.estado === 'Completa') {
         style.backgroundColor = '#3aa674';
       } else {
         style.backgroundColor = 'red'
@@ -175,7 +216,7 @@ export default function Range(items) {
       return style;
     };
     
-  console.log(listadoFinal);
+  // console.log(listadoFinal);
 
  
   return (
@@ -217,6 +258,11 @@ export default function Range(items) {
           noDataIndication={ emptyDataMessage }
           rowStyle={ rowStyle2 }
         />
+      </div>
+
+      <div>
+        <h3 className="restante">Maquinas restantes para finalizar extracción: {Restante}</h3>
+        <h3 className="noPudo">No se puedieron extraer: {NoPudo}</h3>
       </div>
 
 

@@ -7,15 +7,12 @@ import { Header } from "../components/Header";
 
 
 function Conversion() {
+
   const [items, setItems] = useState([0]);
   const [Table, setTable] = useState([{maquina: 1, fecha: '01/01/1990'}]);
   
-
-  
-
   useEffect(() => {
     
-
     let interval = setInterval(() => {
   
         async function info() {
@@ -31,7 +28,7 @@ function Conversion() {
     }, 5000) 
   }, [])
 
-  console.log(Table);
+  // console.log(Table);
 
   
   const readExcel = (file) => {
@@ -67,6 +64,12 @@ function Conversion() {
     });
   };
 
+  if(Table[0].fecha !== undefined){
+    var dia = new Date(Table[0].fecha)
+    dia = dia.toLocaleDateString();
+    
+    }
+
 
   
  
@@ -83,17 +86,11 @@ function Conversion() {
         className='botonInput'
       />
 
-    <h2 className="fecha">Fecha de lista cargada: {10}</h2>
+    <h2 className="fecha">Fecha de lista cargada: {dia}</h2>
     
     </div>
-      <Range props={items}/>
 
-      <div>
-        <h3 className="restante">Maquinas restantes para finalizar extracción: {56}</h3>
-        <h3 className="noPudo">No se puedieron extraer: {18}</h3>
-      </div>
-
-      
+      <Range props={items}/>     
 
     </div>
 
