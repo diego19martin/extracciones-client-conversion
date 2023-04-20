@@ -87,7 +87,6 @@ export default function Range(items) {
 
   // console.log(listadoExtraer);
 
-
   console.log(Resumen.props.length);
   
     if(Resumen.props.length>1){ 
