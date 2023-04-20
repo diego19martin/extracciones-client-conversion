@@ -28,6 +28,7 @@ export const getInfo = async(maquina)=> {
     }else{
     return res;
     }}
+    
 
 export const postSelect = async(selectInfo)=> {
     console.log(selectInfo);
