@@ -43,7 +43,6 @@ const TablaMaquinas = (props) => {
       setSelectedAyrray(selArray)
       console.log(SelectedAyrray);
     
-
   }, infoMaquinas)
 
   console.log(MaquinasExtraer);
