@@ -32,7 +32,7 @@ const TablaMaquinas = (props) => {
   
       var selArray =[];
 
-      for(i=0; i< infoMaquinas.length; i++) {
+      for(i=0; i < infoMaquinas.length; i++) {
         if(infoMaquinas[i].finalizado==='Extraida'){
           selArray.push(infoMaquinas[i].id);
         }
@@ -46,9 +46,9 @@ const TablaMaquinas = (props) => {
 
   }, infoMaquinas)
 
-  // console.log(MaquinasExtraer);
+  console.log(MaquinasExtraer);
 
-  if(infoMaquinas.length > 1) {
+  if(infoMaquinas.length >= 1) {
 
   console.log(SelectedAyrray);
   const columns = [{
@@ -197,7 +197,7 @@ if (Select === (MaquinasExtraer.length + 1)){
       ];
       setMaquinasExtraer(MaquinasExtraer)
       setSelect(1);
-      // console.log(MaquinasExtraer);
+      console.log(MaquinasExtraer);
     } else if (result.isDenied) {
     }
     
