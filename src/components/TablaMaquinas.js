@@ -33,7 +33,7 @@ const TablaMaquinas = (props) => {
       var selArray =[];
 
       for(i=0; i < infoMaquinas.length; i++) {
-        if(infoMaquinas[i].finalizado==='Extraida'){
+        if(infoMaquinas[i].finalizado==='Completa'){
           selArray.push(infoMaquinas[i].id);
         }
       }
@@ -73,6 +73,8 @@ const TablaMaquinas = (props) => {
 
   onSelect: (row, isSelect, rowIndex, e) => {
 
+    console.log(row, e);
+
     setSelectedAyrray('');
 
     if(isSelect===true){
@@ -87,11 +89,21 @@ const TablaMaquinas = (props) => {
         /* Read more about isConfirmed, isDenied below */
         if (result.isConfirmed) {
 
+          // console.log(row.finalizado);
+          // row.finalizado = 'Completo';
+          // console.log(row.finalizado);
+
+          Swal.fire({
+            title: 'Novedad de la máquina',
+            input: 'text'
+        }).then((result) => {
+
           selectInfo.push({
             'maquina': row,
             'finalizado': isSelect,
             'asistente1': ext[0].value,
-            'asistente2': ext[1].value
+            'asistente2': ext[1].value,
+            'comentario': result.value
           });
       
           setExtracciones(ext)
@@ -103,16 +115,17 @@ const TablaMaquinas = (props) => {
             setSelect(Select - 1)
           }
          
-          console.log(Select);
+          // console.log(Select);
       
           // console.log(infoMaquinas);
+        })
          
         } else if (result.isDenied) {
           Swal.fire({
             title: 'Motivo',
             input: 'text'
         }).then((result) => {
-          console.log(result.value);
+          // console.log(result.value);
 
           selectInfo.push({
             'maquina': row,
@@ -133,7 +146,7 @@ const TablaMaquinas = (props) => {
             setSelect(Select - 1)
           }
          
-          console.log(Select);
+          // console.log(Select);
 
         }) 
       } else {
