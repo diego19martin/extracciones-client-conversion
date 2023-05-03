@@ -120,7 +120,10 @@ export default function Range(items) {
             'location' : listadoExtraer[i].location,
             'bill' : listadoExtraer[i].bill,
             'fecha' : listadoExtraer[i].fecha,
-            'estado': listadoExtraer[i].finalizado
+            'estado': listadoExtraer[i].finalizado,
+            'asistente1': listadoExtraer[i].asistente1,
+            'asistente2': listadoExtraer[i].asistente2,
+            'comentario': listadoExtraer[i].comentario
           } 
         )
       }

@@ -41,6 +41,7 @@ export const Extracciones = () => {
     { value: 'OCHOA SERGIO HERNAN', label: 'OCHOA SERGIO HERNAN' },
     { value: 'CAVEZZALI PABLO', label: 'CAVEZZALI PABLO' },
     { value: 'FAJARDO ROMÁN', label:'FAJARDO ROMÁN'},
+    { value: 'ANTUNEZ FRANCO', label:'ANTUNEZ FRANCO'},
     { value: 'ANTICIPADA', label:'ANTICIPADA'},
   ]
 
