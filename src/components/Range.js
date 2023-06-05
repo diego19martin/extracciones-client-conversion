@@ -218,7 +218,7 @@ export default function Range(items) {
       return style;
     };
     
-  // console.log(listadoFinal);
+  console.log(listadoFinal);
 
  
   return (
