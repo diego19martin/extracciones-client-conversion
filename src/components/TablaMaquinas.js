@@ -74,6 +74,15 @@ const TablaMaquinas = (props) => {
 
   onSelect: (row, isSelect, rowIndex, e) => {
 
+    // Crear un elemento <select> personalizado
+    const selectElement = document.createElement('select');
+    selectElement.innerHTML = `
+      <option value="Llave limada">Llave limada</option>
+      <option value="Cerradura de Stacker Rota">Cerradura de Stacker Rota</option>
+      <option value="Bonus/Juegos gratis">Bonus/Juegos gratis</option>
+      <option value="Puerta principal">Puerta principal</option>
+    `;
+
     setSelectedAyrray('');
 
     if(isSelect===true){
@@ -111,22 +120,22 @@ const TablaMaquinas = (props) => {
         } else if (result.isDenied) {
           Swal.fire({
             title: 'Motivo',
-            input: 'text'
+            html: selectElement.outerHTML
         }).then((result) => {
-          console.log(result.value);
+          console.log(selectElement.value);
 
           selectInfo.push({
             'maquina': row,
             'finalizado': 'No Disponible',
             'asistente1': ext[0].value,
             'asistente2': ext[1].value,
-            'comentario': result.value
+            'comentario': selectElement.value
           });
       
           setExtracciones(ext)
           postSelect(selectInfo);
 
-          // console.log(selectInfo);
+          console.log(selectInfo);
       
           if(isSelect){
           setSelect(Select + 1)
