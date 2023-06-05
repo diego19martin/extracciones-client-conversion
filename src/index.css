@@ -115,6 +115,13 @@ table {
   margin: 20px auto;
 }
 
+.range
+  .MuiBox-root 
+    .css-14pt78w-MuiSlider-rail {
+      width: 75rem;
+    
+  }
+
 @media (max-width: 720px) {
   .react-bootstrap-table
   table {

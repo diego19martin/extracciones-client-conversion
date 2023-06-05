@@ -32,8 +32,8 @@ const TablaMaquinas = (props) => {
   
       var selArray =[];
 
-      for(i=0; i< infoMaquinas.length; i++) {
-        if(infoMaquinas[i].finalizado==='Extraida'){
+      for(i=0; i < infoMaquinas.length; i++) {
+        if(infoMaquinas[i].finalizado==='Completa'){
           selArray.push(infoMaquinas[i].id);
         }
       }
@@ -43,12 +43,11 @@ const TablaMaquinas = (props) => {
       setSelectedAyrray(selArray)
       console.log(SelectedAyrray);
     
-
   }, infoMaquinas)
 
-  // console.log(MaquinasExtraer);
+  console.log(MaquinasExtraer);
 
-  if(infoMaquinas.length > 1) {
+  if(infoMaquinas.length >= 1) {
 
   console.log(SelectedAyrray);
   const columns = [{
@@ -74,6 +73,7 @@ const TablaMaquinas = (props) => {
 
   onSelect: (row, isSelect, rowIndex, e) => {
 
+
     // Crear un elemento <select> personalizado
     const selectElement = document.createElement('select');
     selectElement.innerHTML = `
@@ -82,6 +82,9 @@ const TablaMaquinas = (props) => {
       <option value="Bonus/Juegos gratis">Bonus/Juegos gratis</option>
       <option value="Puerta principal">Puerta principal</option>
     `;
+
+    console.log(row, e);
+
 
     setSelectedAyrray('');
 
@@ -97,11 +100,21 @@ const TablaMaquinas = (props) => {
         /* Read more about isConfirmed, isDenied below */
         if (result.isConfirmed) {
 
+          // console.log(row.finalizado);
+          // row.finalizado = 'Completo';
+          // console.log(row.finalizado);
+
+          Swal.fire({
+            title: 'Novedad de la máquina',
+            input: 'text'
+        }).then((result) => {
+
           selectInfo.push({
             'maquina': row,
             'finalizado': isSelect,
             'asistente1': ext[0].value,
-            'asistente2': ext[1].value
+            'asistente2': ext[1].value,
+            'comentario': result.value
           });
       
           setExtracciones(ext)
@@ -113,16 +126,21 @@ const TablaMaquinas = (props) => {
             setSelect(Select - 1)
           }
          
-          console.log(Select);
+          // console.log(Select);
       
           // console.log(infoMaquinas);
+        })
          
         } else if (result.isDenied) {
           Swal.fire({
             title: 'Motivo',
             html: selectElement.outerHTML
         }).then((result) => {
+
           console.log(selectElement.value);
+
+          // console.log(result.value);
+
 
           selectInfo.push({
             'maquina': row,
@@ -143,7 +161,7 @@ const TablaMaquinas = (props) => {
             setSelect(Select - 1)
           }
          
-          console.log(Select);
+          // console.log(Select);
 
         }) 
       } else {
@@ -206,7 +224,7 @@ if (Select === (MaquinasExtraer.length + 1)){
       ];
       setMaquinasExtraer(MaquinasExtraer)
       setSelect(1);
-      // console.log(MaquinasExtraer);
+      console.log(MaquinasExtraer);
     } else if (result.isDenied) {
     }
     
