@@ -31,7 +31,6 @@ export const Extracciones = () => {
     { value: 'CAMINOS GUSTAVO', label: 'CAMINOS GUSTAVO' },
     { value: 'LEYES GABRIEL', label: 'LEYES GABRIEL' },
     { value: 'MUNICOY GUSTAVO', label: 'MUNICOY GUSTAVO' },
-    { value: 'MARTINEZ ADAN DARIO', label: 'MARTINEZ ADAN DARIO' },
     { value: 'CARDOZO MAURICIO', label: 'CARDOZO MAURICIO' },
     { value: 'CASTILLO ROQUE', label: 'CASTILLO ROQUE' },
     { value: 'ROMAGNOLO GUSTAVO', label: 'ROMAGNOLO GUSTAVO' },
@@ -40,9 +39,10 @@ export const Extracciones = () => {
     { value: 'RODRIGUEZ HORACIO', label: 'RODRIGUEZ HORACIO' },
     { value: 'OCHOA SERGIO HERNAN', label: 'OCHOA SERGIO HERNAN' },
     { value: 'CAVEZZALI PABLO', label: 'CAVEZZALI PABLO' },
-    { value: 'FAJARDO ROMÁN', label:'FAJARDO ROMÁN'},
-    { value: 'ANTUNEZ FRANCO', label:'ANTUNEZ FRANCO'},
+    { value: 'PRIETO JUAN', label:'PRIETO JUAN'},
+    { value: 'MOLINARI MARCELO', label:'MOLINARI MARCELO'},
     { value: 'ANTICIPADA', label:'ANTICIPADA'},
+    
   ]
 
   const handleChange = event => {
