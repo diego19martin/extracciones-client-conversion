@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
-import BootstrapTable from 'react-bootstrap-table-next';
-import 'react-bootstrap-table-next/dist/react-bootstrap-table2.min.css';
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Button } from '@mui/material';
 import { postSelect } from '../api/conversion.api';
 import Swal from 'sweetalert2';
 import { v4 } from 'uuid';
@@ -12,7 +11,7 @@ const TablaMaquinas = (props) => {
   console.log(props);
   
   var infoMaquinas=Object.values(props.info)
-  // console.log(infoMaquinas);
+  console.log(infoMaquinas);
 
   var ext = Object.values(props.ext)
   // console.log(ext);
@@ -23,6 +22,14 @@ const TablaMaquinas = (props) => {
   const [Select, setSelect] = useState(1);
   var [MaquinasExtraer, setMaquinasExtraer] = useState(['']);
   const [SelectedAyrray, setSelectedAyrray] = useState('')
+
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [finishedRows, setFinishedRows] = useState([]);
+  const [noFinishedRows, setNoFinishedRows] = useState([]);
+  const [restantes, setRestantes] = useState(0);
+  const [sala, setSala] = useState('');
+  const [cont, setCont] = useState(0);
+  const [maquinas, setMaquinas] = useState([]);
 
   useEffect(() => {
 
@@ -52,15 +59,23 @@ const TablaMaquinas = (props) => {
   console.log(SelectedAyrray);
   const columns = [{
   dataField: 'maquina',
-  text: 'Máquina'
+  text: 'Máquina',
+  headerStyle: { backgroundColor: '#e342e6', color: 'white' },
   },
   {
     dataField: 'location',
-    text: 'Location'
+    text: 'Location',
+    headerStyle: { backgroundColor: '#e342e6', color: 'white' },
+  },
+  {
+    dataField: 'zona',
+    text: 'Zona',
+    headerStyle: { backgroundColor: '#e342e6', color: 'white' },
   },
   {
     dataField: 'finalizado',
-    text: 'Extracción'
+    text: 'Extracción',
+    headerStyle: { backgroundColor: '#e342e6', color: 'white' },
   }];
 
   var selectInfo = [];
@@ -237,18 +252,166 @@ console.log(MaquinasExtraer);
 
 const emptyDataMessage = () => { return 'Sin datos para mostrar';}
 
+
+const handleFinalizar = async (row) => {
+  // Verificar si se han seleccionado exactamente dos asistentes
+  if (ext.length !== 2) {
+      // Mostrar alerta indicando que se deben seleccionar dos asistentes
+      Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Debe seleccionar dos asistentes',
+      });
+      return; // Detener la ejecución de la función
+  }
+
+  const result = await Swal.fire({
+      title: 'Seleccione una opción de extracción:',
+      showDenyButton: true,
+      showCancelButton: false,
+      confirmButtonText: 'Completa',
+      denyButtonText: `No realizada`,
+  });
+
+  if (result.isConfirmed) {
+      const comentario = await Swal.fire({
+          title: 'Novedad de la máquina',
+          input: 'text'
+      });
+
+      if (comentario.isConfirmed) {
+          await saveSelect(row, true, comentario.value); // Pasando los tres parámetros
+          setFinishedRows([...finishedRows, row.id]); // Agregar el ID de la máquina a finishedRows
+      }
+  } else if (result.isDenied) {
+      const motivo = await Swal.fire({
+          title: 'Motivo',
+          input: 'select',
+          inputOptions: {
+              'Llave limada': 'Llave limada',
+              'Cerradura de Stacker Rota': 'Cerradura de Stacker Rota',
+              'Bonus/Juegos gratis': 'Bonus/Juegos gratis',
+              'Puerta principal': 'Puerta principal'
+          },
+          inputPlaceholder: 'Seleccione un motivo',
+          showCancelButton: true,
+          cancelButtonText: 'Cancelar',
+          inputValidator: (value) => {
+              if (!value) {
+                  return 'Debe seleccionar un motivo';
+              }
+          }
+      });
+
+      if (motivo.isConfirmed) {
+          await saveSelect(row, false, motivo.value); // Pasando los tres parámetros
+          setNoFinishedRows([...noFinishedRows, row.id]); // Agregar el ID de la máquina a noFinishedRows
+      }
+  }
+};
+
+const handleRowClick = (row) => {
+  const selectedIndex = selectedRows.indexOf(row.id);
+  let newSelected = [];
+
+  if (selectedIndex === -1) {
+      newSelected = newSelected.concat(selectedRows, row.id);
+  } else if (selectedIndex === 0) {
+      newSelected = newSelected.concat(selectedRows.slice(1));
+  } else if (selectedIndex === selectedRows.length - 1) {
+      newSelected = newSelected.concat(selectedRows.slice(0, -1));
+  } else if (selectedIndex > 0) {
+      newSelected = newSelected.concat(
+          selectedRows.slice(0, selectedIndex),
+          selectedRows.slice(selectedIndex + 1)
+      );
+  }
+
+  setSelectedRows(newSelected);
+};
+
+
+
+const saveSelect = async (row, finalizado, comentario) => {
+  console.log(row, finalizado, comentario);
+  getRowStyle(row);
+  const selectInfo = {
+      maquina: row,
+      finalizado: finalizado ? 'Completa' : 'Pendiente',
+      asistente1: ext[0].value,
+      asistente2: ext[1].value,
+      comentario: comentario
+  };
+  console.log(selectInfo);
+  await postSelect(selectInfo);
+  setCont(cont + 1);
+  if (finalizado) {
+      setFinishedRows([...finishedRows, row.id]);
+  } else {
+      // setFinishedRows(finishedRows.filter(id => id !== row.id));
+      setNoFinishedRows([...noFinishedRows, row.id]);
+  }
+};
+
+
+const getRowStyle = (maquina) => {
+  // console.log(maquina);
+  let backgroundColor = '#ffffff'; // Color por defecto
+
+  // Si la máquina está en la lista de máquinas finalizadas, marcarla de verde
+  if (finishedRows.includes(maquina.id)) {
+      backgroundColor = '#3aa674'; // Color verde
+      // console.log(maquina.id, 'finished');
+  } else if (noFinishedRows.includes(maquina.id)) {
+      // Si la máquina está en la lista de máquinas pendientes, marcarla de otro color (por ejemplo, amarillo)
+      backgroundColor = '#ffeb3b'; // Color amarillo
+      // console.log(maquina.id, 'not finished');
+  } else {
+      // Si la máquina no está en ninguna de las listas, aplicar estilo de alternancia de color
+      backgroundColor = maquina.id % 2 === 0 ? '#f0f0f0' : '#ffffff';
+      // console.log(maquina.id, 'not in any list');
+  }
+
+  return { backgroundColor };
+};
+
+
+
   return (
   
-    <BootstrapTable
-      keyField= 'id'
-      data={ MaquinasExtraer }
-      columns={ columns }
-      selectRow={ selectRow }
-      noDataIndication={ emptyDataMessage }
-      rowClasses={'rowClass'}
-      headerClasses={'headerclass'}
-      
-    />
+
+    <>
+        <h2>Extracciones en Sala</h2>
+       
+        <TableContainer>
+            <Table>
+                <TableHead style={{backgroundColor: '#54c7f4'}}>
+                    <TableRow>
+                        <TableCell>Máquina</TableCell>
+                        <TableCell>Location</TableCell>
+                        <TableCell>Zona</TableCell>
+                        <TableCell>Acción</TableCell>
+                    </TableRow>
+                </TableHead>
+                <TableBody>
+                    {MaquinasExtraer.map((maquina, index) => (
+                        <TableRow 
+                        key={index} 
+                        onClick={() => handleRowClick(maquina)} 
+                        style={getRowStyle(maquina)}
+                    >
+                        <TableCell style={{fontSize: '10px'}}>{maquina.maquina}</TableCell>
+                        <TableCell style={{fontSize: '10px'}}>{maquina.location}</TableCell>
+                        <TableCell style={{fontSize: '10px'}}>{maquina.zona}</TableCell>
+                        <TableCell>
+                            <Button onClick={() => handleFinalizar(maquina)} style={{fontSize: '10px'}}>Finalizar</Button>
+                        </TableCell>
+                    </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </TableContainer>
+        </>
 
   );
 

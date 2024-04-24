@@ -15,9 +15,11 @@ export const postConfig = async(configuracion)=>{
     await axios.post(`${host}/postConfig/${configuracion}`);
 }
 
-export const getResumen = async()=>{
-    await axios.get(`${host}/getResumen`); 
+export const getResumen = async () => {
+    const res = await axios.get(`${host}/getResumen`);
+    return res.data;
 }
+
 
 export const getInfo = async(maquina)=> {
     const res = await axios.get(`${host}/getInfo/${maquina}`);

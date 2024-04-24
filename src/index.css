@@ -23,11 +23,11 @@ code {
 .headerConv {
   height: 60px;
   text-align: center;
-  font-size: 25px;
+  font-size: 20px;
   margin: 0 auto;
-  color: rgb(38, 0, 119);
+  color: rgb(253, 253, 253);
   width: 100%;
-  background-color: #ffbf7f6e;
+  background-color: #fb4a4a;
     
 }
 
@@ -122,6 +122,16 @@ table {
     
   }
 
+  .resumen {
+    background-color: antiquewhite;
+    border: 1px solid black;
+    padding: 5px;
+    border-radius: 15px;
+
+    margin: 20px auto;
+    
+  }
+
 @media (max-width: 720px) {
   .react-bootstrap-table
   table {
@@ -164,7 +174,7 @@ table {
   .range
   .MuiBox-root
   .css-187mznn-MuiSlider-root {
-    width: 50%;
+    width: 100%;
     float: left;
   }
 
@@ -173,11 +183,11 @@ table {
   }
 
   .headerclass {
-    font-size: 20px;
+    font-size: 12px;
   }
 
   .rowClass {
-    font-size: 20px;
+    font-size: 10px;
     
   }
 
@@ -185,5 +195,47 @@ table {
     width: 95%;
   }
 
+  th {
+    width: auto;
+  }
+
 }
+
+.table-container {
+  margin-top: 20px;
+  background-color: #f2f2f2;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th, .table td {
+  border: 1px solid #682727;
+  padding: 8px;
+  text-align: left;
+}
+
+.table th {
+  background-color: #f2f2f2;
+}
+
+.table tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
+
+.table tr:hover {
+  background-color: #ddd;
+}
+
+.completed {
+  background-color: #3aa674; /* Verde */
+}
+
+.pendings {
+  background-color: #fb7474; /* Rojo */
+}
+
+
 

@@ -70,6 +70,8 @@ function Conversion() {
     
     }
 
+  console.log(items);
+
 
   
  
