@@ -23,7 +23,7 @@ export const getResumen = async () => {
 
 export const getInfo = async(maquina)=> {
     const res = await axios.get(`${host}/getInfo/${maquina}`);
-    // console.log(res);
+    console.log(res);
     if(res===1){
         alert('no se encontro la maquina')
     
