@@ -8,175 +8,167 @@ const TablaMaquinas = (props) => {
   const { info, ext } = props;
 
   const [selectedRows, setSelectedRows] = useState([]);
+  const [maquinas, setMaquinas] = useState([]);
   const [finishedRows, setFinishedRows] = useState([]);
   const [noFinishedRows, setNoFinishedRows] = useState([]);
-  const [maquinas, setMaquinas] = useState([]);
-  const [selectInfo, setSelectInfo] = useState([]);
-  const [select, setSelect] = useState(1);
+  const [cont, setCont] = useState(0);
+  const [showTableBody, setShowTableBody] = useState(true); // Nuevo estado para controlar la visibilidad del cuerpo de la tabla
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await getInfo(info);
-        const data = response.data;
-        console.log(info, data);
-  
-        // Verificar si data es un array antes de usar filter()
-        if (Array.isArray(data)) {
-          const finished = data.filter(maquina => maquina.finalizado === 'Completa').map(maquina => maquina.id);
-          const notFinished = data.filter(maquina => maquina.finalizado === 'Pendiente').map(maquina => maquina.id);
-
-          setMaquinas(data);
-          setFinishedRows(finished);
-          setNoFinishedRows(notFinished);
-        } else {
-          console.error('El objeto recibido no es un array:', data);
-        }
-      } catch (error) {
-        console.error('Error al obtener los datos de la sala:', error);
-      }
-    };
-  
-    if (Object.values(info).length > 0) {
-      fetchData();
+    try {
+      console.log(props.info);
+      setMaquinas(props.info);
+      setShowTableBody(true); 
+      const maquinasData = props.info;
+      const selected = maquinasData.filter(maquina => maquina.finalizado === 'Completa').map(maquina => maquina.id);
+      setSelectedRows(selected);
+      const finished = maquinasData.filter(maquina => maquina.finalizado === 'Completa').map(maquina => maquina.id);
+      setFinishedRows(finished);
+      const notFinished = maquinasData.filter(maquina => maquina.finalizado === 'Pendiente').map(maquina => maquina.id);
+      setNoFinishedRows(notFinished);
+    } catch (error) {
+      console.error('Error al obtener los datos de la sala:', error);
     }
-  }, [info]);
-
-  // console.log(finishedRows, noFinishedRows);
-  
-
-  
+  }, [props.info]);
 
   const handleRowClick = (row) => {
-    const finishedIndex = finishedRows.indexOf(row.id);
-    const notFinishedIndex = noFinishedRows.indexOf(row.id);
-    let newFinished = [...finishedRows];
-    let newNotFinished = [...noFinishedRows];
+    const selectedIndex = selectedRows.indexOf(row.id);
+    let newSelected = [];
 
-    // Si la máquina está en la lista de filas finalizadas, quitarla de esa lista
-    // y agregarla a la lista de filas no finalizadas
-    if (finishedIndex !== -1) {
-        newFinished = newFinished.filter(id => id !== row.id);
-        if (notFinishedIndex === -1) {
-            newNotFinished.push(row.id);
-        }
-    } else {
-        // Si la máquina no está en la lista de filas finalizadas,
-        // agregarla a esa lista y quitarla de la lista de filas no finalizadas
-        newFinished.push(row.id);
-        if (notFinishedIndex !== -1) {
-            newNotFinished = newNotFinished.filter(id => id !== row.id);
-        }
+    if (selectedIndex === -1) {
+      newSelected = newSelected.concat(selectedRows, row.id);
+    } else if (selectedIndex === 0) {
+      newSelected = newSelected.concat(selectedRows.slice(1));
+    } else if (selectedIndex === selectedRows.length - 1) {
+      newSelected = newSelected.concat(selectedRows.slice(0, -1));
+    } else if (selectedIndex > 0) {
+      newSelected = newSelected.concat(
+        selectedRows.slice(0, selectedIndex),
+        selectedRows.slice(selectedIndex + 1)
+      );
     }
 
-    setSelectedRows([...newFinished, ...newNotFinished]);
-    setFinishedRows(newFinished);
-    setNoFinishedRows(newNotFinished);
-};
+    setSelectedRows(newSelected);
+  };
 
-  
   const handleFinalizar = async (row) => {
-    // Verificar si se han seleccionado exactamente dos asistentes
     if (ext.length !== 2) {
-        // Mostrar alerta indicando que se deben seleccionar dos asistentes
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'Debe seleccionar dos asistentes',
-        });
-        return; // Detener la ejecución de la función
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Debe seleccionar dos asistentes',
+      });
+      return;
     }
 
     const result = await Swal.fire({
-        title: 'Seleccione una opción de extracción:',
-        showDenyButton: true,
-        showCancelButton: false,
-        confirmButtonText: 'Completa',
-        denyButtonText: `No realizada`,
-        allowOutsideClick: false, // Evita que el modal se cierre al hacer clic fuera de él
+      title: 'Seleccione una opción de extracción:',
+      showDenyButton: true,
+      showCancelButton: false,
+      confirmButtonText: 'Completa',
+      denyButtonText: `No realizada`,
+      allowOutsideClick: false,
     });
 
-  if (result.isConfirmed) {
+    if (result.isConfirmed) {
       const comentario = await Swal.fire({
-          title: 'Novedad de la máquina',
-          input: 'text',
-          allowOutsideClick: false, // Evita que el modal se cierre al hacer clic fuera de él
+        title: 'Novedad de la máquina',
+        input: 'text',
+        allowOutsideClick: false,
       });
 
       if (comentario.isConfirmed) {
-          await saveSelect(row, true, comentario.value); // Pasando los tres parámetros
+        await saveSelect(row, true, comentario.value);
       }
-  } else if (result.isDenied) {
+    } else if (result.isDenied) {
       const motivo = await Swal.fire({
-          title: 'Motivo',
-          input: 'select',
-          inputOptions: {
-              'Llave limada': 'Llave limada',
-              'Cerradura de Stacker Rota': 'Cerradura de Stacker Rota',
-              'Bonus/Juegos gratis': 'Bonus/Juegos gratis',
-              'Puerta principal': 'Puerta principal'
-          },
-          inputPlaceholder: 'Seleccione un motivo',
-          showCancelButton: true,
-          cancelButtonText: 'Cancelar',
-          allowOutsideClick: false, // Evita que el modal se cierre al hacer clic fuera de él
-          inputValidator: (value) => {
-              if (!value) {
-                  return 'Debe seleccionar un motivo';
-              }
+        title: 'Motivo',
+        input: 'select',
+        inputOptions: {
+          'Llave limada': 'Llave limada',
+          'Cerradura de Stacker Rota': 'Cerradura de Stacker Rota',
+          'Bonus/Juegos gratis': 'Bonus/Juegos gratis',
+          'Puerta principal': 'Puerta principal'
+        },
+        inputPlaceholder: 'Seleccione un motivo',
+        showCancelButton: true,
+        cancelButtonText: 'Cancelar',
+        allowOutsideClick: false,
+        inputValidator: (value) => {
+          if (!value) {
+            return 'Debe seleccionar un motivo';
           }
+        }
       });
 
       if (motivo.isConfirmed) {
-          await saveSelect(row, false, motivo.value); // Pasando los tres parámetros
+        await saveSelect(row, false, motivo.value);
       }
-  }
-};
+    }
+  };
 
-const saveSelect = async (row, finalizado, comentario) => {
-  console.log(row, finalizado, comentario);
-  getRowStyle(row);
-  const selectInfo = {
+  const saveSelect = async (row, finalizado, comentario) => {
+    console.log(row, finalizado, comentario);
+    getRowStyle(row);
+    const selectInfo = {
       maquina: row,
       finalizado: finalizado ? 'Completa' : 'Pendiente',
       asistente1: ext[0].value,
       asistente2: ext[1].value,
       comentario: comentario
-  };
-  console.log(selectInfo);
-  await postSelect(selectInfo);
-
-  if (finalizado) {
+    };
+    console.log(selectInfo);
+    await postSelect(selectInfo);
+    setCont(cont + 1);
+    if (finalizado) {
       setFinishedRows([...finishedRows, row.id]);
-  } else {
+    } else {
       // setFinishedRows(finishedRows.filter(id => id !== row.id));
       setNoFinishedRows([...noFinishedRows, row.id]);
-  }
-};
+    }
+    checkIslandCompletion();
+  };
 
-const getRowStyle = (maquina) => {
-  // console.log(maquina);
-  let backgroundColor = '#ffffff'; // Color por defecto
+  const checkIslandCompletion = () => {
+    console.log(finishedRows.length, noFinishedRows.length, maquinas.length);
+    if (finishedRows.length + noFinishedRows.length >= (maquinas.length-1)) {
+      console.log('Island completed');
+      Swal.fire({
+        title: '¿Desea pasar a la siguiente isla?',
+        showDenyButton: true,
+        confirmButtonText: 'Sí',
+        denyButtonText: `No`,
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // Reiniciar la tabla para la siguiente isla
+          resetTable();
+        }
+      });
+    }
+  };
 
-  // Si la máquina está en la lista de máquinas finalizadas, marcarla de verde
-  if (finishedRows.includes(maquina.id)) {
+  const resetTable = () => {
+    // Limpiar los estados y ocultar el cuerpo de la tabla
+    setSelectedRows([]);
+    setFinishedRows([]);
+    setNoFinishedRows([]);
+    setCont(0);
+    setShowTableBody(false); // Ocultar el cuerpo de la tabla
+  };
+
+  const getRowStyle = (maquina) => {
+    let backgroundColor = '#ffffff'; // Color por defecto
+
+    if (finishedRows.includes(maquina.id)) {
       backgroundColor = '#3aa674'; // Color verde
-      console.log('verde');
-      // console.log(maquina.id, 'finished');
-  } else if (noFinishedRows.includes(maquina.id)) {
-      // Si la máquina está en la lista de máquinas pendientes, marcarla de otro color (por ejemplo, amarillo)
+    } else if (noFinishedRows.includes(maquina.id)) {
       backgroundColor = '#ffeb3b'; // Color amarillo
-      // console.log(maquina.id, 'not finished');
-      console.log('amarillo');
-  } else {
-      // Si la máquina no está en ninguna de las listas, aplicar estilo de alternancia de color
-      backgroundColor = maquina.id % 2 === 0 ? '#f0f0f0' : '#ffffff';
-      // console.log(maquina.id, 'not in any list');
-  }
+    } else {
+      backgroundColor = maquina.id % 2 === 0 ? '#f0f0f0' : '#ffffff'; // Alternancia de colores
+    }
 
-  return { backgroundColor };
-};
-
+    return { backgroundColor };
+  };
 
   return (
     <>
@@ -191,22 +183,24 @@ const getRowStyle = (maquina) => {
               <TableCell>Acción</TableCell>
             </TableRow>
           </TableHead>
-          <TableBody>
-            {Object.values(info).map((maquina, index) => (
-              <TableRow
-                key={index}
-                onClick={() => handleRowClick(maquina)}
-                style={getRowStyle(maquina)}
-              >
-                <TableCell style={{ fontSize: '10px' }}>{maquina.maquina}</TableCell>
-                <TableCell style={{ fontSize: '10px' }}>{maquina.location}</TableCell>
-                <TableCell style={{ fontSize: '10px' }}>{maquina.zona}</TableCell>
-                <TableCell>
-                  <Button onClick={() => handleFinalizar(maquina)} style={{ fontSize: '10px' }}>Finalizar</Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
+          {showTableBody && ( // Mostrar el cuerpo de la tabla solo si showTableBody es true
+            <TableBody>
+              {Object.values(info).map((maquina, index) => (
+                <TableRow
+                  key={index}
+                  onClick={() => handleRowClick(maquina)}
+                  style={getRowStyle(maquina)}
+                >
+                  <TableCell style={{ fontSize: '10px' }}>{maquina.maquina}</TableCell>
+                  <TableCell style={{ fontSize: '10px' }}>{maquina.location}</TableCell>
+                  <TableCell style={{ fontSize: '10px' }}>{maquina.zona}</TableCell>
+                  <TableCell>
+                    <Button onClick={() => handleFinalizar(maquina)} style={{ fontSize: '10px' }}>Finalizar</Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          )}
         </Table>
       </TableContainer>
     </>
