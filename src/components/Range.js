@@ -14,11 +14,12 @@ export default function Range(items) {
   const [Resumen, setResumen] = useState([]);
   const [cant, SetCant] = useState(0);
   const [Total, SetTotal] = useState(0);
-  const [listadoFinal, setListadoFinal] = useState([{ maquina: 1, fecha: 0, estado: '' }]);
-  const [listadoExtraer, setListadoExtraer] = useState([{ maquina: 1, fecha: 0, estado: '' }]);
+  const [listadoFinal, setListadoFinal] = useState([]);
+  const [listadoExtraer, setListadoExtraer] = useState([]);
   const [Restante, setRestante] = useState(0);
   const [NoPudo, setNoPudo] = useState(0);
-  const [DineroEnStacker, setDineroEnStacker] = useState(0); // Nuevo estado para el dinero en stacker
+  const [DineroEnStacker, setDineroEnStacker] = useState(0);
+  const [fecha, setFecha] = useState('');
 
   const handleChange = (event, newValue) => {
     setResumen(items);
@@ -32,19 +33,13 @@ export default function Range(items) {
         extraer++;
         sumTotal += Resumen.props[i].bill;
       } else {
-
         dineroEnStacker += Resumen.props[i].bill;
         console.log(Resumen.props[i].bill);
-
       }
     }
-
-    // console.log(Resumen.props[i].bill, value, extraer, sumTotal, dineroEnStacker);
-    
     SetCant(extraer);
     SetTotal(sumTotal);
     setDineroEnStacker(dineroEnStacker);
-
   }
 
   function handleClick() {
@@ -70,6 +65,7 @@ export default function Range(items) {
   useEffect(() => {
     var listadoFiltrado = [];
     var i = 0;
+
     for (i = 0; i < listadoExtraer.length; i++) {
       if (listadoExtraer[i].bill > value) {
         listadoFiltrado.push({
@@ -82,17 +78,17 @@ export default function Range(items) {
           'asistente2': listadoExtraer[i].asistente2,
           'comentario': listadoExtraer[i].comentario
         });
+        setFecha(listadoExtraer[i].fecha);
       }
     }
     setListadoFinal(listadoFiltrado);
-  }, [listadoExtraer]);
+ 
+  }, [listadoExtraer, value]);
+
 
   const totalFormat = Total.toLocaleString('en-US');
   const totalStacker = DineroEnStacker.toLocaleString('en-US');
 
-  // console.log(listadoExtraer);
-
- 
   return (
     <div className='infoContainer'>
       <div className='range' style={{ width: '100%' }}>
@@ -153,11 +149,10 @@ export default function Range(items) {
         </table>
       </div>
 
-
-      <div>
+      {/* <div>
         <h3 className="restante">Máquinas restantes para finalizar extracción: {Restante}</h3>
         <h3 className="noPudo">No se pudieron extraer: {NoPudo}</h3>
-      </div>
+      </div> */}
     </div>
   );
 }

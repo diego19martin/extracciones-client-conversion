@@ -9,6 +9,8 @@ body {
   background-repeat: round;
   color: black;
   text-align: center;
+  background-repeat: repeat;
+  background-size: contain;
 }
 
 code {
@@ -229,6 +231,13 @@ table {
   background-color: #ddd;
 }
 
+.completed {
+  background-color: #3aa674; /* Verde */
+}
+
+.pendings {
+  background-color: #fb7474; /* Rojo */
+}
 
 
 
