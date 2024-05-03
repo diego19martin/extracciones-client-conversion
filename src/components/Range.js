@@ -107,6 +107,7 @@ export default function Range(items) {
         </Box>
         <h3>Limite de dinero seleccionado $ {value.toLocaleString('en-US')}</h3>
       </div>
+      
 
       <div className='info'>
         <h3>Cantidad de máquinas a extraer {cant}</h3>
