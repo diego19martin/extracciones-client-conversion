@@ -61,6 +61,8 @@ export default function Range({ props }) {
   };
 
   const handleChangeDolares = (event, newValue) => {
+    // console.log(newValue);
+    
     setResumen(props);
     setValueDolares(newValue);
     let extraerDolares = 0;

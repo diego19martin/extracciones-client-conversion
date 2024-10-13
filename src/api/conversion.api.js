@@ -11,9 +11,10 @@ export const postMaquinas = async(listado)=>{
     await axios.post(`${host}/postMaquinas`, listado);
 }
 
-export const postConfig = async({ valuePesos }) => {
-    console.log(valuePesos);
-    await axios.post(`${host}/postConfig/${valuePesos}`);
+export const postConfig = async({ valuePesos, valueDolares }) => {
+    console.log(valuePesos, valueDolares);
+    
+    await axios.post(`${host}/postConfig`, { valuePesos, valueDolares });
 }
 
 export const getResumen = async () => {
