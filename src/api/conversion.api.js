@@ -2,17 +2,18 @@ import axios from "axios";
 
 const host = process.env.REACT_APP_HOST;
 
-// console.log(host);
+console.log(host);
 
 export const postMaquinas = async(listado)=>{
 
-    // console.log(listado);
+    console.log(listado);
 
     await axios.post(`${host}/postMaquinas`, listado);
 }
 
-export const postConfig = async(configuracion)=>{
-    await axios.post(`${host}/postConfig/${configuracion}`);
+export const postConfig = async({ valuePesos }) => {
+    console.log(valuePesos);
+    await axios.post(`${host}/postConfig/${valuePesos}`);
 }
 
 export const getResumen = async () => {

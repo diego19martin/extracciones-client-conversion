@@ -1,7 +1,21 @@
+// Código actualizado de la interfaz de configuración para el manejo de extracciones en Pesos y Dólares
+
 import React, { useState, useEffect } from 'react';
-import Box from '@mui/material/Box';
-import Slider from '@mui/material/Slider';
-import Button from '@mui/material/Button';
+import { 
+  Box, 
+  Slider, 
+  Button, 
+  Card, 
+  CardContent, 
+  Typography, 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableContainer, 
+  TableHead, 
+  TableRow, 
+  Paper
+} from '@mui/material';
 import { getTable, postConfig, postMaquinas } from '../api/conversion.api';
 import Swal from 'sweetalert2';
 
@@ -9,151 +23,221 @@ function valuetext(value) {
   return `${value}°C`;
 }
 
-export default function Range(items) {
-  const [value, setValue] = useState(0);
-  const [Resumen, setResumen] = useState([]);
-  const [cant, SetCant] = useState(0);
-  const [Total, SetTotal] = useState(0);
+export default function Range({ props }) {
+  const [valuePesos, setValuePesos] = useState(0);
+  const [valueDolares, setValueDolares] = useState(1);
+  const [resumen, setResumen] = useState([]);
+  const [cant, setCant] = useState(0);
+  const [total, setTotal] = useState(0);
   const [listadoFinal, setListadoFinal] = useState([]);
   const [listadoExtraer, setListadoExtraer] = useState([]);
-  const [Restante, setRestante] = useState(0);
-  const [NoPudo, setNoPudo] = useState(0);
-  const [DineroEnStacker, setDineroEnStacker] = useState(0);
+  const [dineroEnStacker, setDineroEnStacker] = useState(0);
   const [fecha, setFecha] = useState('');
 
-  const handleChange = (event, newValue) => {
-    setResumen(items);
-    setValue(newValue + 5000);
-    var i = 0;
-    var extraer = 0;
-    var sumTotal = 0;
-    let dineroEnStacker = 0;
-    for (i = 0; i < Resumen.props.length; i++) {
-      if (Resumen.props[i].bill >= value) {
-        extraer++;
-        sumTotal += Resumen.props[i].bill;
-      } else {
-        dineroEnStacker += Resumen.props[i].bill;
-        console.log(Resumen.props[i].bill);
+  // Nuevos estados para máquinas en dólares
+  const [cantDolares, setCantDolares] = useState(0);
+  const [totalDolares, setTotalDolares] = useState(0);
+  const [dineroEnStackerDolares, setDineroEnStackerDolares] = useState(0);
+
+  const handleChangePesos = (event, newValue) => {
+    setResumen(props);
+    setValuePesos(newValue);
+    let extraerPesos = 0;
+    let sumTotalPesos = 0;
+    let dineroEnStackerPesos = 0;
+
+    for (let i = 0; i < resumen.length; i++) {
+      if (resumen[i].moneda === 'pesos' && resumen[i].bill >= newValue) {
+        extraerPesos++;
+        sumTotalPesos += resumen[i].bill;
+      } else if (resumen[i].moneda === 'pesos') {
+        dineroEnStackerPesos += resumen[i].bill;
       }
     }
-    SetCant(extraer);
-    SetTotal(sumTotal);
-    setDineroEnStacker(dineroEnStacker);
-  }
 
-  function handleClick() {
-    postMaquinas(Resumen.props);
-    let interval = setInterval(() => {
-      async function infoFinal() {
-        const resp = await getTable();
-        setListadoExtraer(resp.data);
+    setCant(extraerPesos);
+    setTotal(sumTotalPesos);
+    setDineroEnStacker(dineroEnStackerPesos);
+  };
+
+  const handleChangeDolares = (event, newValue) => {
+    setResumen(props);
+    setValueDolares(newValue);
+    let extraerDolares = 0;
+    let sumTotalDolares = 0;
+    let stackerDolares = 0;
+
+    for (let i = 0; i < resumen.length; i++) {
+      if (resumen[i].moneda === 'dolares' && resumen[i].bill >= newValue) {
+        extraerDolares++;
+        sumTotalDolares += resumen[i].bill;
+      } else if (resumen[i].moneda === 'dolares') {
+        stackerDolares += resumen[i].bill;
       }
-      infoFinal();
+    }
+
+    setCantDolares(extraerDolares);
+    setTotalDolares(sumTotalDolares);
+    setDineroEnStackerDolares(stackerDolares);
+
+    setCantDolares(extraerDolares);
+    setTotalDolares(sumTotalDolares);
+    setDineroEnStackerDolares(stackerDolares);
+  };
+
+  const handleClick = () => {
+    postMaquinas(resumen);
+    const interval = setInterval(async () => {
+      const resp = await getTable();
+      setListadoExtraer(resp.data);
     }, 5000);
-    if (Resumen.props.length > 1) {
-      postConfig(value);
+    if (resumen.length > 1) {
+      postConfig({ valuePesos, valueDolares });
+      Swal.fire({
+        icon: 'success',
+        title: 'Configuración confirmada',
+        text: 'Los datos de límites en pesos y dólares han sido enviados correctamente.',
+      });
     } else {
       Swal.fire({
         icon: 'error',
-        title: 'Atención!',
+        title: 'Error',
         text: 'No hay archivo seleccionado',
       });
     }
-  }
+    setTimeout(() => clearInterval(interval), 60000);
+  };
 
   useEffect(() => {
-    var listadoFiltrado = [];
-    var i = 0;
-
-    for (i = 0; i < listadoExtraer.length; i++) {
-      if (listadoExtraer[i].bill > value) {
-        listadoFiltrado.push({
-          'maquina': listadoExtraer[i].maquina,
-          'location': listadoExtraer[i].location,
-          'bill': listadoExtraer[i].bill,
-          'fecha': listadoExtraer[i].fecha,
-          'estado': listadoExtraer[i].finalizado,
-          'asistente1': listadoExtraer[i].asistente1,
-          'asistente2': listadoExtraer[i].asistente2,
-          'comentario': listadoExtraer[i].comentario
-        });
-        setFecha(listadoExtraer[i].fecha);
-      }
-    }
+    const listadoFiltrado = listadoExtraer.filter(item => item.bill > valuePesos);
     setListadoFinal(listadoFiltrado);
- 
-  }, [listadoExtraer, value]);
-
-
-  const totalFormat = Total.toLocaleString('en-US');
-  const totalStacker = DineroEnStacker.toLocaleString('en-US');
+    if (listadoFiltrado.length > 0) {
+      setFecha(listadoFiltrado[0].fecha);
+    }
+  }, [listadoExtraer, valuePesos]);
 
   return (
-    <div className='infoContainer'>
-      <div className='range' style={{ width: '100%' }}>
-        <h3>Deslice para seleccionar límite de dinero a extraer por máquina</h3>
-        <Box sx={{ width: '100%' }}>
+    <Card sx={{ maxWidth: 800, margin: 'auto', mt: 4 }}>
+      <CardContent>
+        <Typography variant="h5" component="div" gutterBottom>
+          Configuración de Extracción de Casino
+        </Typography>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          Ajuste los límites de extracción y revise el resumen
+        </Typography>
+
+        <Box sx={{ my: 4 }}>
+          <Typography gutterBottom>Límite de dinero a extraer por máquina (Pesos)</Typography>
           <Slider
-            getAriaLabel={() => 'Temperature range'}
-            value={value}
-            onChange={handleChange}
+            value={valuePesos}
+            onChange={handleChangePesos}
             valueLabelDisplay="auto"
             getAriaValueText={valuetext}
             min={0}
             max={100000}
             step={5000}
           />
+          <Typography variant="body2" color="text.secondary">
+            Límite seleccionado: ${valuePesos.toLocaleString('en-US')}
+          </Typography>
         </Box>
-        <h3>Limite de dinero seleccionado $ {value.toLocaleString('en-US')}</h3>
-      </div>
-      
 
-      <div className='info'>
-        <h3>Cantidad de máquinas a extraer {cant}</h3>
-        <h3>Dinero total a extraer $ {totalFormat}</h3>
-        <h3>Dinero en stacker $ {totalStacker}</h3>
-      </div>
+        <Box sx={{ my: 4 }}>
+          <Typography gutterBottom>Límite de dólares a extraer por máquina</Typography>
+          <Slider
+            value={valueDolares}
+            onChange={handleChangeDolares}
+            valueLabelDisplay="auto"
+            getAriaValueText={valuetext}
+            min={1}
+            max={100000}
+            step={1}
+          />
+          <Typography variant="body2" color="text.secondary">
+            Límite seleccionado: ${valueDolares.toLocaleString('en-US')}
+          </Typography>
+        </Box>
 
-      <Button className='but' variant="contained" color="success" onClick={handleClick} style={{ 'margin': '30px' }}>
-        Confirmar configuración
-      </Button>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', my: 4 }}>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">Máquinas a extraer</Typography>
+            <Typography variant="h6">{cant}</Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">Total a extraer</Typography>
+            <Typography variant="h6">${total.toLocaleString('en-US')}</Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">Dinero en stacker</Typography>
+            <Typography variant="h6">${dineroEnStacker.toLocaleString('en-US')}</Typography>
+          </Box>
+        </Box>
 
-      <div className='table-container'>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', my: 4, mt: 6 }}>
+          <Typography variant="h6" gutterBottom>
+            Resumen de Máquinas en Dólares
+          </Typography>
+        </Box>
 
-        <h2>Listado de Máquinas</h2>
-        <table className='table'>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Máquina</th>
-              <th>Location</th>
-              <th>Asistente 1</th>
-              <th>Asistente 2</th>
-              <th>Extracción</th>
-              <th>Comentario</th>
-            </tr>
-          </thead>
-          <tbody>
-            {listadoFinal.map((item, index) => (
-              <tr key={index} style={{ backgroundColor: item.estado === 'Completa' ? '#3aa674' : item.estado === 'Pendiente' ? 'red' : '' }}>
-                <td>{index + 1}</td>
-                <td>{item.maquina}</td>
-                <td>{item.location}</td>
-                <td>{item.asistente1}</td>
-                <td>{item.asistente2}</td>
-                <td>{item.estado}</td>
-                <td>{item.comentario}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', my: 4 }}>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">Máquinas a extraer (Dólares)</Typography>
+            <Typography variant="h6">{cantDolares}</Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">Total a extraer (Dólares)</Typography>
+            <Typography variant="h6">${totalDolares.toLocaleString('en-US')}</Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">Dinero en stacker (Dólares)</Typography>
+            <Typography variant="h6">${dineroEnStackerDolares.toLocaleString('en-US')}</Typography>
+          </Box>
+        </Box>
 
-      {/* <div>
-        <h3 className="restante">Máquinas restantes para finalizar extracción: {Restante}</h3>
-        <h3 className="noPudo">No se pudieron extraer: {NoPudo}</h3>
-      </div> */}
-    </div>
+        <Button variant="contained" color="primary" fullWidth onClick={handleClick} sx={{ my: 2 }}>
+          Confirmar configuración
+        </Button>
+
+        <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
+          Listado de Máquinas
+        </Typography>
+        <TableContainer component={Paper}>
+          <Table sx={{ minWidth: 650 }} aria-label="simple table">
+            <TableHead>
+              <TableRow>
+                <TableCell>#</TableCell>
+                <TableCell>Máquina</TableCell>
+                <TableCell>Location</TableCell>
+                <TableCell>Asistente 1</TableCell>
+                <TableCell>Asistente 2</TableCell>
+                <TableCell>Extracción</TableCell>
+                <TableCell>Comentario</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {listadoFinal.map((item, index) => (
+                <TableRow
+                  key={index}
+                  sx={{ 
+                    '&:last-child td, &:last-child th': { border: 0 },
+                    backgroundColor: item.estado === 'Completa' ? 'rgba(134, 239, 172, 0.5)' : 
+                                     item.estado === 'Pendiente' ? 'rgba(252, 165, 165, 0.5)' : 
+                                     'transparent'
+                  }}
+                >
+                  <TableCell component="th" scope="row">{index + 1}</TableCell>
+                  <TableCell>{item.maquina}</TableCell>
+                  <TableCell>{item.location}</TableCell>
+                  <TableCell>{item.asistente1}</TableCell>
+                  <TableCell>{item.asistente2}</TableCell>
+                  <TableCell>{item.estado}</TableCell>
+                  <TableCell>{item.comentario}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </CardContent>
+    </Card>
   );
 }
