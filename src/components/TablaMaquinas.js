@@ -1,57 +1,78 @@
 import React, { useState, useEffect } from 'react';
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Button } from '@mui/material';
-import { getInfo, postSelect } from '../api/conversion.api';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Button,
+  Chip,
+  Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+} from '@mui/material';
+import { styled } from '@mui/material/styles';
+import { postSelect } from '../api/conversion.api';
 import Swal from 'sweetalert2';
-import { v4 } from 'uuid';
 
-const TablaMaquinas = (props) => {
-  const { info, ext } = props;
+const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
+  maxHeight: 440,
+  marginTop: theme.spacing(2),
+}));
 
-  const [selectedRows, setSelectedRows] = useState([]);
+const StyledTableCell = styled(TableCell)(({ theme }) => ({
+  fontWeight: 'bold',
+}));
+
+const StyledTableRow = styled(TableRow)(({ theme, status }) => ({
+  '&:nth-of-type(odd)': {
+    backgroundColor: theme.palette.action.hover,
+  },
+  backgroundColor: status === 'Completa' ? '#e8f5e9' : status === 'Pendiente' ? '#fff3e0' : 'inherit',
+}));
+
+const TablaMaquinas = ({ info, ext }) => {
   const [maquinas, setMaquinas] = useState([]);
   const [finishedRows, setFinishedRows] = useState([]);
   const [noFinishedRows, setNoFinishedRows] = useState([]);
-  const [cont, setCont] = useState(0);
-  const [showTableBody, setShowTableBody] = useState(true); // Nuevo estado para controlar la visibilidad del cuerpo de la tabla
+  const [showTableBody, setShowTableBody] = useState(true);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
+  const [currentMachine, setCurrentMachine] = useState(null);
+  const [extractionStatus, setExtractionStatus] = useState('');
+  const [comment, setComment] = useState('');
+  const [reason, setReason] = useState('');
+
+  const predefinedReasons = [
+    'Llave limada',
+    'Cerradura de Stacker Rota',
+    'Bonus/Juegos gratis',
+    'Puerta principal'
+  ];
 
   useEffect(() => {
     try {
-      console.log(props.info);
-      setMaquinas(props.info);
-      setShowTableBody(true); 
-      const maquinasData = props.info;
-      const selected = maquinasData.filter(maquina => maquina.finalizado === 'Completa').map(maquina => maquina.id);
-      setSelectedRows(selected);
-      const finished = maquinasData.filter(maquina => maquina.finalizado === 'Completa').map(maquina => maquina.id);
+      setMaquinas(info);
+      setShowTableBody(true);
+      const finished = info.filter(maquina => maquina.finalizado === 'Completa').map(maquina => maquina.id);
       setFinishedRows(finished);
-      const notFinished = maquinasData.filter(maquina => maquina.finalizado === 'Pendiente').map(maquina => maquina.id);
+      const notFinished = info.filter(maquina => maquina.finalizado === 'Pendiente').map(maquina => maquina.id);
       setNoFinishedRows(notFinished);
     } catch (error) {
       console.error('Error al obtener los datos de la sala:', error);
     }
-  }, [props.info]);
+  }, [info]);
 
-  const handleRowClick = (row) => {
-    const selectedIndex = selectedRows.indexOf(row.id);
-    let newSelected = [];
-
-    if (selectedIndex === -1) {
-      newSelected = newSelected.concat(selectedRows, row.id);
-    } else if (selectedIndex === 0) {
-      newSelected = newSelected.concat(selectedRows.slice(1));
-    } else if (selectedIndex === selectedRows.length - 1) {
-      newSelected = newSelected.concat(selectedRows.slice(0, -1));
-    } else if (selectedIndex > 0) {
-      newSelected = newSelected.concat(
-        selectedRows.slice(0, selectedIndex),
-        selectedRows.slice(selectedIndex + 1)
-      );
-    }
-
-    setSelectedRows(newSelected);
-  };
-
-  const handleFinalizar = async (row) => {
+  const handleFinalizar = (maquina) => {
     if (ext.length !== 2) {
       Swal.fire({
         icon: 'error',
@@ -60,87 +81,71 @@ const TablaMaquinas = (props) => {
       });
       return;
     }
+    setCurrentMachine(maquina);
+    setOpenConfirmDialog(true);
+  };
 
-    const result = await Swal.fire({
-      title: 'Seleccione una opción de extracción:',
-      showDenyButton: true,
-      showCancelButton: false,
-      confirmButtonText: 'Completa',
-      denyButtonText: `No realizada`,
-      allowOutsideClick: false,
-    });
+  const handleConfirmDialogClose = () => {
+    setOpenConfirmDialog(false);
+  };
 
-    if (result.isConfirmed) {
-      const comentario = await Swal.fire({
-        title: 'Novedad de la máquina',
-        input: 'text',
-        allowOutsideClick: false,
-      });
-
-      if (comentario.isConfirmed) {
-        await saveSelect(row, true, comentario.value);
-      }
-    } else if (result.isDenied) {
-      const motivo = await Swal.fire({
-        title: 'Motivo',
-        input: 'select',
-        inputOptions: {
-          'Llave limada': 'Llave limada',
-          'Cerradura de Stacker Rota': 'Cerradura de Stacker Rota',
-          'Bonus/Juegos gratis': 'Bonus/Juegos gratis',
-          'Puerta principal': 'Puerta principal'
-        },
-        inputPlaceholder: 'Seleccione un motivo',
-        showCancelButton: true,
-        cancelButtonText: 'Cancelar',
-        allowOutsideClick: false,
-        inputValidator: (value) => {
-          if (!value) {
-            return 'Debe seleccionar un motivo';
-          }
-        }
-      });
-
-      if (motivo.isConfirmed) {
-        await saveSelect(row, false, motivo.value);
-      }
+  const handleExtractionConfirm = (isCompleted) => {
+    setOpenConfirmDialog(false);
+    if (isCompleted) {
+      setExtractionStatus('Completa');
+      setOpenDialog(true);
+    } else {
+      setExtractionStatus('Pendiente');
+      setOpenDialog(true);
     }
   };
 
-  const saveSelect = async (row, finalizado, comentario) => {
-    console.log(row, finalizado, comentario);
-    getRowStyle(row);
-    const selectInfo = {
-      maquina: row,
-      finalizado: finalizado ? 'Completa' : 'Pendiente',
-      asistente1: ext[0].value,
-      asistente2: ext[1].value,
-      comentario: comentario
-    };
-    console.log(selectInfo);
-    await postSelect(selectInfo);
-    setCont(cont + 1);
-    if (finalizado) {
-      setFinishedRows([...finishedRows, row.id]);
-    } else {
-      // setFinishedRows(finishedRows.filter(id => id !== row.id));
-      setNoFinishedRows([...noFinishedRows, row.id]);
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setExtractionStatus('');
+    setComment('');
+    setReason('');
+  };
+
+  const saveSelect = async () => {
+    try {
+      const selectInfo = {
+        maquina: currentMachine,
+        finalizado: extractionStatus,
+        asistente1: ext[0].value,
+        asistente2: ext[1].value,
+        comentario: extractionStatus === 'Completa' ? comment : reason
+      };
+      await postSelect(selectInfo);
+      setMaquinas(maquinas.map(m => 
+        m.id === currentMachine.id ? {...m, finalizado: extractionStatus} : m
+      ));
+      if (extractionStatus === 'Completa') {
+        setFinishedRows([...finishedRows, currentMachine.id]);
+      } else {
+        setNoFinishedRows([...noFinishedRows, currentMachine.id]);
+      }
+      handleCloseDialog();
+      checkIslandCompletion();
+    } catch (error) {
+      console.error('Error al guardar la extracción:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo guardar la extracción',
+      });
     }
-    checkIslandCompletion();
   };
 
   const checkIslandCompletion = () => {
-    console.log(finishedRows.length, noFinishedRows.length, maquinas.length);
-    if (finishedRows.length + noFinishedRows.length >= (maquinas.length-1)) {
-      console.log('Island completed');
+    if (finishedRows.length + noFinishedRows.length >= (maquinas.length - 1)) {
       Swal.fire({
         title: '¿Desea pasar a la siguiente isla?',
         showDenyButton: true,
         confirmButtonText: 'Sí',
-        denyButtonText: `No`,
+        denyButtonText: 'No',
       }).then((result) => {
         if (result.isConfirmed) {
-          // Reiniciar la tabla para la siguiente isla
           resetTable();
         }
       });
@@ -148,62 +153,110 @@ const TablaMaquinas = (props) => {
   };
 
   const resetTable = () => {
-    // Limpiar los estados y ocultar el cuerpo de la tabla
-    setSelectedRows([]);
     setFinishedRows([]);
     setNoFinishedRows([]);
-    setCont(0);
-    setShowTableBody(false); // Ocultar el cuerpo de la tabla
-  };
-
-  const getRowStyle = (maquina) => {
-    let backgroundColor = '#ffffff'; // Color por defecto
-
-    if (finishedRows.includes(maquina.id)) {
-      backgroundColor = '#3aa674'; // Color verde
-    } else if (noFinishedRows.includes(maquina.id)) {
-      backgroundColor = '#ffeb3b'; // Color amarillo
-    } else {
-      backgroundColor = maquina.id % 2 === 0 ? '#f0f0f0' : '#ffffff'; // Alternancia de colores
-    }
-
-    return { backgroundColor };
+    setShowTableBody(false);
   };
 
   return (
-    <>
-      <h2>Extracciones en Sala</h2>
-      <TableContainer>
-        <Table>
-          <TableHead style={{ backgroundColor: '#54c7f4' }}>
+    <Paper elevation={3} sx={{ p: 3 }}>
+      <Typography variant="h5" gutterBottom>
+        Extracciones en Sala
+      </Typography>
+      <StyledTableContainer component={Paper}>
+        <Table stickyHeader>
+          <TableHead>
             <TableRow>
-              <TableCell>Máquina</TableCell>
-              <TableCell>Location</TableCell>
-              <TableCell>Zona</TableCell>
-              <TableCell>Acción</TableCell>
+              <StyledTableCell>Máquina</StyledTableCell>
+              <StyledTableCell>Location</StyledTableCell>
+              <StyledTableCell>Zona</StyledTableCell>
+              <StyledTableCell>Estado</StyledTableCell>
+              <StyledTableCell>Acción</StyledTableCell>
             </TableRow>
           </TableHead>
-          {showTableBody && ( // Mostrar el cuerpo de la tabla solo si showTableBody es true
+          {showTableBody && (
             <TableBody>
-              {Object.values(info).map((maquina, index) => (
-                <TableRow
-                  key={index}
-                  onClick={() => handleRowClick(maquina)}
-                  style={getRowStyle(maquina)}
-                >
-                  <TableCell style={{ fontSize: '10px' }}>{maquina.maquina}</TableCell>
-                  <TableCell style={{ fontSize: '10px' }}>{maquina.location}</TableCell>
-                  <TableCell style={{ fontSize: '10px' }}>{maquina.zona}</TableCell>
+              {maquinas.map((maquina, index) => (
+                <StyledTableRow key={index} status={maquina.finalizado}>
+                  <TableCell>{maquina.maquina}</TableCell>
+                  <TableCell>{maquina.location}</TableCell>
+                  <TableCell>{maquina.zona}</TableCell>
                   <TableCell>
-                    <Button onClick={() => handleFinalizar(maquina)} style={{ fontSize: '10px' }}>Finalizar</Button>
+                    <Chip
+                      label={maquina.finalizado || 'No iniciado'}
+                      color={maquina.finalizado === 'Completa' ? 'success' : 
+                             maquina.finalizado === 'Pendiente' ? 'warning' : 'default'}
+                    />
                   </TableCell>
-                </TableRow>
+                  <TableCell>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="small"
+                      onClick={() => handleFinalizar(maquina)}
+                    >
+                      Finalizar
+                    </Button>
+                  </TableCell>
+                </StyledTableRow>
               ))}
             </TableBody>
           )}
         </Table>
-      </TableContainer>
-    </>
+      </StyledTableContainer>
+
+      <Dialog open={openConfirmDialog} onClose={handleConfirmDialogClose}>
+        <DialogTitle>Confirmar Extracción</DialogTitle>
+        <DialogContent>
+          <Typography>¿Cómo desea finalizar esta extracción?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => handleExtractionConfirm(true)} color="primary">
+            Finalizar
+          </Button>
+          <Button onClick={() => handleExtractionConfirm(false)} color="secondary">
+            No Realizada
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openDialog} onClose={handleCloseDialog}>
+        <DialogTitle>
+          {extractionStatus === 'Completa' ? 'Finalizar Extracción' : 'Extracción No Realizada'}
+        </DialogTitle>
+        <DialogContent>
+          {extractionStatus === 'Completa' ? (
+            <TextField
+              margin="normal"
+              label="Comentario"
+              fullWidth
+              multiline
+              rows={4}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+            />
+          ) : (
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Motivo</InputLabel>
+              <Select
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              >
+                {predefinedReasons.map((reason, index) => (
+                  <MenuItem key={index} value={reason}>{reason}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>Cancelar</Button>
+          <Button onClick={saveSelect} variant="contained" color="primary">
+            Guardar
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Paper>
   );
 };
 

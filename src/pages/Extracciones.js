@@ -138,3 +138,5 @@ export const Extracciones = () => {
     </>
   )
 }
+
+export default Extracciones;

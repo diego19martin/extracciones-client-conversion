@@ -1,7 +1,7 @@
 import React from 'react'
 import { Route, Routes } from "react-router-dom";
 import Conversion from './pages/conversion.js';
-import { Extracciones } from './pages/Extracciones.js';
+import Extracciones from './pages/Extracciones.js';
 
 
 export const App = () => {
