@@ -60,20 +60,24 @@ const TablaMaquinas = ({ info, ext }) => {
   ];
 
   useEffect(() => {
-    try {
-      setMaquinas(info);
-      setShowTableBody(true);
-      const finished = info.filter(maquina => maquina.finalizado === 'Completa').map(maquina => maquina.id);
-      setFinishedRows(finished);
-      const notFinished = info.filter(maquina => maquina.finalizado === 'Pendiente').map(maquina => maquina.id);
-      setNoFinishedRows(notFinished);
-    } catch (error) {
-      console.error('Error al obtener los datos de la sala:', error);
+    if (Array.isArray(info)) {
+      try {
+        setMaquinas(info);
+        setShowTableBody(true);
+        const finished = info.filter(maquina => maquina.finalizado === 'Completa').map(maquina => maquina.id);
+        setFinishedRows(finished);
+        const notFinished = info.filter(maquina => maquina.finalizado === 'Pendiente').map(maquina => maquina.id);
+        setNoFinishedRows(notFinished);
+      } catch (error) {
+        console.error('Error al obtener los datos de la sala:', error);
+      }
+    } else {
+      console.error('La información recibida no es un array:', info);
     }
   }, [info]);
 
   const handleFinalizar = (maquina) => {
-    if (ext.length !== 2) {
+    if (!Array.isArray(ext) || ext.length !== 2) {
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -91,13 +95,8 @@ const TablaMaquinas = ({ info, ext }) => {
 
   const handleExtractionConfirm = (isCompleted) => {
     setOpenConfirmDialog(false);
-    if (isCompleted) {
-      setExtractionStatus('Completa');
-      setOpenDialog(true);
-    } else {
-      setExtractionStatus('Pendiente');
-      setOpenDialog(true);
-    }
+    setExtractionStatus(isCompleted ? 'Completa' : 'Pendiente');
+    setOpenDialog(true);
   };
 
   const handleCloseDialog = () => {
@@ -108,25 +107,41 @@ const TablaMaquinas = ({ info, ext }) => {
   };
 
   const saveSelect = async () => {
+    if (!currentMachine) return;
+  
     try {
+      console.log('currentmachine', currentMachine);
+      
       const selectInfo = {
-        maquina: currentMachine,
+        maquina: currentMachine.maquina, // Extraer solo el número de la máquina
         finalizado: extractionStatus,
-        asistente1: ext[0].value,
-        asistente2: ext[1].value,
-        comentario: extractionStatus === 'Completa' ? comment : reason
+        asistente1: ext[0]?.value || '',
+        asistente2: ext[1]?.value || '',
+        comentario: extractionStatus === 'Completa' ? comment : reason,
+        fecha: currentMachine.fecha, 
+        zona: currentMachine.zona 
       };
+      console.log(selectInfo);
+      
       await postSelect(selectInfo);
-      setMaquinas(maquinas.map(m => 
-        m.id === currentMachine.id ? {...m, finalizado: extractionStatus} : m
-      ));
+  
+      // Actualizar el estado de las máquinas con el nuevo estado
+      const updatedMaquinas = maquinas.map(m =>
+        m.id === currentMachine.id ? { ...m, finalizado: extractionStatus } : m
+      );
+      setMaquinas(updatedMaquinas);
+  
+      // Actualizar los registros finalizados y no finalizados
       if (extractionStatus === 'Completa') {
-        setFinishedRows([...finishedRows, currentMachine.id]);
+        setFinishedRows((prevFinishedRows) => [...prevFinishedRows, currentMachine.id]);
       } else {
-        setNoFinishedRows([...noFinishedRows, currentMachine.id]);
+        setNoFinishedRows((prevNoFinishedRows) => [...prevNoFinishedRows, currentMachine.id]);
       }
+  
       handleCloseDialog();
-      checkIslandCompletion();
+  
+      // Llamar a la función checkIslandCompletion con los estados actualizados
+      checkIslandCompletion(updatedMaquinas, [...finishedRows, ...(extractionStatus === 'Completa' ? [currentMachine.id] : [])], [...noFinishedRows, ...(extractionStatus === 'Pendiente' ? [currentMachine.id] : [])]);
     } catch (error) {
       console.error('Error al guardar la extracción:', error);
       Swal.fire({
@@ -136,9 +151,11 @@ const TablaMaquinas = ({ info, ext }) => {
       });
     }
   };
+  
 
-  const checkIslandCompletion = () => {
-    if (finishedRows.length + noFinishedRows.length >= (maquinas.length - 1)) {
+  const checkIslandCompletion = (updatedMaquinas, updatedFinishedRows, updatedNoFinishedRows) => {
+    // Verificar si se completaron todas las máquinas
+    if (updatedFinishedRows.length + updatedNoFinishedRows.length >= updatedMaquinas.length) {
       Swal.fire({
         title: '¿Desea pasar a la siguiente isla?',
         showDenyButton: true,
@@ -176,35 +193,44 @@ const TablaMaquinas = ({ info, ext }) => {
           </TableHead>
           {showTableBody && (
             <TableBody>
-              {maquinas.map((maquina, index) => (
-                <StyledTableRow key={index} status={maquina.finalizado}>
-                  <TableCell>{maquina.maquina}</TableCell>
-                  <TableCell>{maquina.location}</TableCell>
-                  <TableCell>{maquina.zona}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={maquina.finalizado || 'No iniciado'}
-                      color={maquina.finalizado === 'Completa' ? 'success' : 
-                             maquina.finalizado === 'Pendiente' ? 'warning' : 'default'}
-                    />
+              {Array.isArray(maquinas) && maquinas.length > 0 ? (
+                maquinas.map((maquina, index) => (
+                  <StyledTableRow key={index} status={maquina.finalizado}>
+                    <TableCell>{maquina.maquina}</TableCell>
+                    <TableCell>{maquina.location}</TableCell>
+                    <TableCell>{maquina.zona}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={maquina.finalizado || 'No iniciado'}
+                        color={maquina.finalizado === 'Completa' ? 'success' : 
+                               maquina.finalizado === 'Pendiente' ? 'warning' : 'default'}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        size="small"
+                        onClick={() => handleFinalizar(maquina)}
+                      >
+                        Finalizar
+                      </Button>
+                    </TableCell>
+                  </StyledTableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    No hay datos disponibles.
                   </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      size="small"
-                      onClick={() => handleFinalizar(maquina)}
-                    >
-                      Finalizar
-                    </Button>
-                  </TableCell>
-                </StyledTableRow>
-              ))}
+                </TableRow>
+              )}
             </TableBody>
           )}
         </Table>
       </StyledTableContainer>
 
+      {/* Dialogs for confirming extraction */}
       <Dialog open={openConfirmDialog} onClose={handleConfirmDialogClose}>
         <DialogTitle>Confirmar Extracción</DialogTitle>
         <DialogContent>

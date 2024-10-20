@@ -14,7 +14,7 @@ import {
   TableRow, 
   Paper
 } from '@mui/material';
-import { getTable, postConfig, postMaquinas } from '../api/conversion.api';
+import { getTable, postConfig, postGenerateReport, postMaquinas } from '../api/conversion.api';
 import Swal from 'sweetalert2';
 import io from 'socket.io-client';
 
@@ -38,9 +38,18 @@ export default function Range({ props }) {
 
   const [socket, setSocket] = useState(null);
 
+  const [isLoading, setIsLoading] = useState(false);
+
   useEffect(() => {
+
     const newSocket = io('http://localhost:4000');
+
     setSocket(newSocket);
+
+    newSocket.on('connect_error', (error) => {
+      console.error('Error de conexión al socket:', error);
+    });
+    
 
     newSocket.on('tableUpdate', handleTableUpdate);
 
@@ -56,6 +65,8 @@ export default function Range({ props }) {
       (item.moneda === 'pesos' && item.bill >= valuePesos) || 
       (item.moneda === 'dolares' && item.bill >= valueDolares)
     );
+    
+    console.log('listadofiltrado:', listadoFiltrado);
     
     setListadoFinal(listadoFiltrado);
     if (listadoFiltrado.length > 0) {
@@ -109,32 +120,80 @@ export default function Range({ props }) {
   };
 
   const handleClick = async () => {
-    console.log('hola')
+    setIsLoading(true);
     try {
-      await postMaquinas(resumen);
-      await postConfig({ valuePesos, valueDolares });
-      Swal.fire({
-        icon: 'success',
-        title: 'Configuración confirmada',
-        text: 'Los datos de límites en pesos y dólares han sido enviados correctamente.',
-      });
-      
-      // Request an updated table from the server
-      socket.emit('requestTableUpdate');
+        // Enviar la configuración y máquinas al backend junto con los límites
+        await postMaquinas({ machines: resumen, valuePesos, valueDolares });
+
+        // Confirmar la configuración de límites
+        await postConfig({ valuePesos, valueDolares });
+
+        // Después de confirmar, filtrar los datos nuevamente para reflejar los límites
+        const updatedListado = resumen.filter(item => 
+            (item.moneda === 'pesos' && item.bill >= valuePesos) || 
+            (item.moneda === 'dolares' && item.bill >= valueDolares)
+        );
+
+        console.log(updatedListado);
+        
+
+        setListadoFinal(updatedListado); // Actualizar la lista de máquinas a mostrar
+
+        Swal.fire({
+            icon: 'success',
+            title: 'Configuración confirmada',
+            text: 'Los datos de límites en pesos y dólares han sido enviados correctamente.',
+        });
     } catch (error) {
-      console.error('Error al enviar la configuración:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Hubo un problema al enviar la configuración.',
-      });
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Hubo un problema al enviar la configuración.',
+        });
+    } finally {
+        setIsLoading(false);
     }
-  };
+};
+
+  
 
   useEffect(() => {
     setResumen(props);
     updateSummary(valuePesos, valueDolares, props);
   }, [props]);
+
+  console.log(listadoFinal);
+
+  const handleGenerateReport = async () => {
+    setIsLoading(true); // Iniciar el estado de cargando
+    try {
+        // Realiza una petición al backend para generar y enviar el reporte
+        await postGenerateReport();
+
+        console.log('generateReport');
+        
+
+        Swal.fire({
+            icon: 'success',
+            title: 'Reporte generado',
+            text: 'El reporte se ha generado y enviado correctamente.',
+        });
+
+
+    } catch (error) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Hubo un problema al generar el reporte.',
+        });
+    } finally {
+        setIsLoading(false); // Asegurar que el botón se habilite siempre
+    }
+};
+
+  
+  
+  
 
   return (
     <Card sx={{ maxWidth: 800, margin: 'auto', mt: 4 }}>
@@ -170,8 +229,8 @@ export default function Range({ props }) {
             valueLabelDisplay="auto"
             getAriaValueText={valuetext}
             min={1}
-            max={100000}
-            step={1}
+            max={1000}
+            step={5}
           />
           <Typography variant="body2" color="text.secondary">
             Límite seleccionado: ${valueDolares.toLocaleString('en-US')}
@@ -214,9 +273,23 @@ export default function Range({ props }) {
           </Box>
         </Box>
 
-        <Button variant="contained" color="primary" fullWidth onClick={handleClick} sx={{ my: 2 }}>
-          Confirmar configuración
+        <Button variant='contained' color='primary' onClick={handleClick} disabled={isLoading}>
+          {isLoading ? 'Procesando...' : 'Confirmar configuración'}
         </Button>
+
+        <Box sx={{ my: 4 }}>
+    <Button
+        variant='contained'
+        color='secondary'
+        onClick={handleGenerateReport}
+        disabled={isLoading}
+        sx={{ mt: 2 }}
+    >
+        {isLoading ? 'Generando reporte...' : 'Generar y enviar reporte'}
+    </Button>
+</Box>
+
+
 
         <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
           Listado de Máquinas
@@ -246,7 +319,7 @@ export default function Range({ props }) {
                   }}
                 >
                   <TableCell component="th" scope="row">{index + 1}</TableCell>
-                  <TableCell>{item.maquina}</TableCell>
+                  <TableCell>{item.maquina || item.machine}</TableCell>
                   <TableCell>{item.location}</TableCell>
                   <TableCell>{item.asistente1 || '-'}</TableCell>
                   <TableCell>{item.asistente2 || '-'}</TableCell>

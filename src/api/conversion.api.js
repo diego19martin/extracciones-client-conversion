@@ -45,4 +45,9 @@ export const getTable = async()=> {
     return res;
 }
 
+export const postGenerateReport = async () => {
+    return await axios.post(`${host}/generarReporte`);
+  };
+  
+
 
