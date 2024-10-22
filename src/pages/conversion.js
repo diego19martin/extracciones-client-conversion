@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { getTable, postMaquinas } from "../api/conversion.api";
-import Range from "../components/Range.js"
+import Range from "../components/Range.js";
 import { Header } from "../components/Header";
 import io from 'socket.io-client';
+import { Link } from 'react-router-dom';
 import {
   Table,
   TableBody,
@@ -13,7 +14,8 @@ import {
   TableRow,
   Paper,
   Typography,
-  Box
+  Box,
+  Button
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
@@ -37,7 +39,7 @@ function Conversion() {
   const [table, setTable] = useState([]);
   
   useEffect(() => {
-    const socket = io('http://localhost:4000'); // Make sure this matches your backend port
+    const socket = io('http://localhost:4000'); // Asegúrate de que este puerto coincida con el backend
 
     socket.on('tableUpdate', (updatedTable) => {
       setTable(updatedTable);
@@ -106,34 +108,13 @@ function Conversion() {
         </Typography>
       </Box>
 
-      <Range props={items}/>
+      <Range props={items} />
 
-      {/* <TableContainer component={Paper} sx={{ mt: 4 }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <StyledTableCell>Máquina</StyledTableCell>
-              <StyledTableCell>Location</StyledTableCell>
-              <StyledTableCell>Asistente 1</StyledTableCell>
-              <StyledTableCell>Asistente 2</StyledTableCell>
-              <StyledTableCell>Extracción</StyledTableCell>
-              <StyledTableCell>Comentario</StyledTableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {table.map((row, index) => (
-              <StyledTableRow key={index} status={row.finalizado}>
-                <TableCell>{row.maquina}</TableCell>
-                <TableCell>{row.location}</TableCell>
-                <TableCell>{row.asistente1 || '-'}</TableCell>
-                <TableCell>{row.asistente2 || '-'}</TableCell>
-                <TableCell>{row.finalizado || 'No iniciado'}</TableCell>
-                <TableCell>{row.comentario || '-'}</TableCell>
-              </StyledTableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer> */}
+      <Link to="/employees">
+        <Button variant="contained" color="primary" style={{ margin: '20px' }}>
+          Gestión de Empleados
+        </Button>
+      </Link>
     </Box>
   );
 }

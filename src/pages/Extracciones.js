@@ -6,6 +6,9 @@ import TablaMaquinas from '../components/TablaMaquinas';
 import { getInfo } from '../api/conversion.api';
 import Select from 'react-select';
 import Swal from 'sweetalert2';
+import { useEffect } from 'react';
+import axios from 'axios';
+
 
 
 export const Extracciones = () => {
@@ -18,6 +21,26 @@ export const Extracciones = () => {
   var asist = [];
 
   // const [buttonClicked, setButtonClicked] = useState(false);
+
+  const [empleados, setEmpleados] = useState([]);
+
+useEffect(() => {
+  const fetchEmpleados = async () => {
+    try {
+      const response = await axios.get('http://localhost:4000/employees');
+      const empleadosData = response.data.map((emp) => ({
+        value: emp.nombre,
+        label: emp.nombre,
+      }));
+      setEmpleados(empleadosData);
+    } catch (error) {
+      console.error('Error al obtener los empleados:', error);
+    }
+  };
+
+  fetchEmpleados();
+}, []);
+
 
   var asistentes = [
     { value: 'CRIADO MOLINA GABRIEL DARIO', label: 'CRIADO MOLINA GABRIEL DARIO' },
@@ -107,15 +130,16 @@ export const Extracciones = () => {
       <div className='container'>
         <form className='form-buscador'>
 
-          <Select
-            isMulti
-            className='select'
-            placeholder='Seleccione Asistenes'
-            classNames={'basic-multi-select'}
-            classNamePrefix="select"
-            options={asistentes}
-            onChange={handleChangeSelect}
-          />
+        <Select
+          isMulti
+          className='select'
+          placeholder='Seleccione Asistentes'
+          classNames={'basic-multi-select'}
+          classNamePrefix="select"
+          options={empleados}
+          onChange={handleChangeSelect}
+        />
+
 
 
           <div className='buscador'>
