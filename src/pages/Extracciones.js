@@ -27,7 +27,7 @@ export const Extracciones = () => {
 useEffect(() => {
   const fetchEmpleados = async () => {
     try {
-      const response = await axios.get('http://localhost:4000/employees');
+      const response = await axios.get('https://git.heroku.com/extraccione-server.git/employees');
       const empleadosData = response.data.map((emp) => ({
         value: emp.nombre,
         label: emp.nombre,
