@@ -5,7 +5,7 @@ import { Button, TextField, Table, TableBody, TableCell, TableContainer, TableHe
 import { Header } from '../components/Header';
 import { Link } from 'react-router-dom';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000';
+const API_BASE_URL = 'https://git.heroku.com/extraccione-server.git';
 
 export default function GestionEmpleados() {
   const [employees, setEmployees] = useState([]);
