@@ -44,6 +44,8 @@ export default function Range({ props }) {
 
     const newSocket = io('https://extraccione-server.herokuapp.com');
 
+    // const newSocket = io('http://localhost:4000/');
+
     setSocket(newSocket);
 
     newSocket.on('connect_error', (error) => {

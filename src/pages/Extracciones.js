@@ -64,9 +64,13 @@ useEffect(() => {
 
 
     console.log('boton');
+    
     // setMaquina(props.maq)
 
     async function findMachine() {
+
+      console.log(maquina);
+      
 
       const resp = await getInfo(maquina);
 

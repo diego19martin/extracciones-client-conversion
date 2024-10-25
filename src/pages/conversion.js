@@ -39,7 +39,10 @@ function Conversion() {
   const [table, setTable] = useState([]);
   
   useEffect(() => {
-    const socket = io('https://extraccione-server.herokuapp.com'); // Asegúrate de que este puerto coincida con el backend
+
+    const socket = io('https://extraccione-server.herokuapp.com'); 
+
+    // const socket = io('http://localhost:4000/'); 
 
     socket.on('tableUpdate', (updatedTable) => {
       setTable(updatedTable);
