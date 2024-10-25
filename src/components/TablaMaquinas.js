@@ -8,7 +8,6 @@ import {
   TableRow,
   Paper,
   Button,
-  Chip,
   Typography,
   Dialog,
   DialogTitle,
@@ -27,18 +26,31 @@ import Swal from 'sweetalert2';
 const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
   maxHeight: 440,
   marginTop: theme.spacing(2),
+  padding: '16px'
 }));
 
-const StyledTableCell = styled(TableCell)(({ theme }) => ({
-  fontWeight: 'bold',
-}));
 
-const StyledTableRow = styled(TableRow)(({ theme, status }) => ({
-  '&:nth-of-type(odd)': {
-    backgroundColor: theme.palette.action.hover,
-  },
-  backgroundColor: status === 'Completa' ? '#e8f5e9' : status === 'Pendiente' ? '#fff3e0' : 'inherit',
-}));
+const StyledTableCell = styled(TableCell)({
+  padding: '2px', // Aumentar el relleno para darle más espacio a cada celda
+  fontSize: '1.4rem', // Aumentar el tamaño de la fuente
+  textAlign: 'center', // Centrar el texto en cada celda
+});
+
+
+const StyledTableRow = styled(TableRow)(({ theme, status }) => {
+  let backgroundColor = 'inherit';
+
+  if (status === 'Completa') {
+    backgroundColor = '#e8f5e9'; // Verde claro
+  } else if (status === 'Pendiente') {
+    backgroundColor = '#ffe6e6'; // Rosa claro
+  }
+
+  return {
+    backgroundColor, // Asignar el color basado en el estado de la máquina
+  };
+});
+
 
 const TablaMaquinas = ({ info, ext }) => {
   const [maquinas, setMaquinas] = useState([]);
@@ -56,7 +68,7 @@ const TablaMaquinas = ({ info, ext }) => {
     'Llave limada',
     'Cerradura de Stacker Rota',
     'Bonus/Juegos gratis',
-    'Puerta principal'
+    'Puerta principal',
   ];
 
   useEffect(() => {
@@ -64,9 +76,9 @@ const TablaMaquinas = ({ info, ext }) => {
       try {
         setMaquinas(info);
         setShowTableBody(true);
-        const finished = info.filter(maquina => maquina.finalizado === 'Completa').map(maquina => maquina.id);
+        const finished = info.filter((maquina) => maquina.finalizado === 'Completa').map((maquina) => maquina.id);
         setFinishedRows(finished);
-        const notFinished = info.filter(maquina => maquina.finalizado === 'Pendiente').map(maquina => maquina.id);
+        const notFinished = info.filter((maquina) => maquina.finalizado === 'Pendiente').map((maquina) => maquina.id);
         setNoFinishedRows(notFinished);
       } catch (error) {
         console.error('Error al obtener los datos de la sala:', error);
@@ -108,40 +120,33 @@ const TablaMaquinas = ({ info, ext }) => {
 
   const saveSelect = async () => {
     if (!currentMachine) return;
-  
+
     try {
       console.log('currentmachine', currentMachine);
-      
+
       const selectInfo = {
         maquina: currentMachine.maquina, // Extraer solo el número de la máquina
         finalizado: extractionStatus,
         asistente1: ext[0]?.value || '',
         asistente2: ext[1]?.value || '',
         comentario: extractionStatus === 'Completa' ? comment : reason,
-        fecha: currentMachine.fecha, 
-        zona: currentMachine.zona 
+        fecha: currentMachine.fecha,
+        zona: currentMachine.zona,
       };
       console.log(selectInfo);
-      
+
       await postSelect(selectInfo);
-  
+
       // Actualizar el estado de las máquinas con el nuevo estado
-      const updatedMaquinas = maquinas.map(m =>
+      const updatedMaquinas = maquinas.map((m) =>
         m.id === currentMachine.id ? { ...m, finalizado: extractionStatus } : m
       );
       setMaquinas(updatedMaquinas);
-  
-      // Actualizar los registros finalizados y no finalizados
-      if (extractionStatus === 'Completa') {
-        setFinishedRows((prevFinishedRows) => [...prevFinishedRows, currentMachine.id]);
-      } else {
-        setNoFinishedRows((prevNoFinishedRows) => [...prevNoFinishedRows, currentMachine.id]);
-      }
-  
+
       handleCloseDialog();
-  
+
       // Llamar a la función checkIslandCompletion con los estados actualizados
-      checkIslandCompletion(updatedMaquinas, [...finishedRows, ...(extractionStatus === 'Completa' ? [currentMachine.id] : [])], [...noFinishedRows, ...(extractionStatus === 'Pendiente' ? [currentMachine.id] : [])]);
+      checkIslandCompletion(updatedMaquinas);
     } catch (error) {
       console.error('Error al guardar la extracción:', error);
       Swal.fire({
@@ -151,11 +156,10 @@ const TablaMaquinas = ({ info, ext }) => {
       });
     }
   };
-  
 
-  const checkIslandCompletion = (updatedMaquinas, updatedFinishedRows, updatedNoFinishedRows) => {
+  const checkIslandCompletion = (updatedMaquinas) => {
     // Verificar si se completaron todas las máquinas
-    if (updatedFinishedRows.length + updatedNoFinishedRows.length >= updatedMaquinas.length) {
+    if (updatedMaquinas.every((maquina) => maquina.finalizado === 'Completa' || maquina.finalizado === 'Pendiente')) {
       Swal.fire({
         title: '¿Desea pasar a la siguiente isla?',
         showDenyButton: true,
@@ -176,36 +180,37 @@ const TablaMaquinas = ({ info, ext }) => {
   };
 
   return (
-    <Paper elevation={3} sx={{ p: 3 }}>
+    <Paper
+      elevation={3}
+      sx={{
+        p: 1, // Ajusta el padding para reducirlo. Un valor de 1 o 2 será menor que el actual (que parece ser alrededor de 3).
+        width: '100%', // Ajusta el ancho para ocupar más espacio de la pantalla.
+        maxWidth: '100%', // Permite ocupar el ancho total del contenedor.
+        margin: '0 auto', // Centra horizontalmente el componente en la pantalla.
+
+      }}
+    >
       <Typography variant="h5" gutterBottom>
         Extracciones en Sala
       </Typography>
       <StyledTableContainer component={Paper}>
-        <Table stickyHeader>
+        <Table stickyHeader sx={{ minWidth: '100%' }}>
           <TableHead>
-            <TableRow>
-              <StyledTableCell>Máquina</StyledTableCell>
-              <StyledTableCell>Location</StyledTableCell>
-              <StyledTableCell>Zona</StyledTableCell>
-              <StyledTableCell>Estado</StyledTableCell>
-              <StyledTableCell>Acción</StyledTableCell>
-            </TableRow>
+          <TableRow>
+            <TableCell sx={{ fontSize: '1rem', fontWeight: 'bold' }}>Máquina</TableCell>
+            <TableCell sx={{ fontSize: '1rem', fontWeight: 'bold' }}>Location</TableCell>
+            <TableCell sx={{ fontSize: '1rem', fontWeight: 'bold' }}>Zona</TableCell>
+            <TableCell sx={{ fontSize: '1rem', fontWeight: 'bold' }}>Acción</TableCell>
+          </TableRow>
           </TableHead>
           {showTableBody && (
             <TableBody>
               {Array.isArray(maquinas) && maquinas.length > 0 ? (
                 maquinas.map((maquina, index) => (
                   <StyledTableRow key={index} status={maquina.finalizado}>
-                    <TableCell>{maquina.maquina}</TableCell>
-                    <TableCell>{maquina.location}</TableCell>
-                    <TableCell>{maquina.zona}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={maquina.finalizado || 'No iniciado'}
-                        color={maquina.finalizado === 'Completa' ? 'success' : 
-                               maquina.finalizado === 'Pendiente' ? 'warning' : 'default'}
-                      />
-                    </TableCell>
+                    <TableCell sx={{ fontSize: '1.2rem' }}>{maquina.maquina}</TableCell>
+                    <TableCell sx={{ fontSize: '1.2rem' }}>{maquina.location}</TableCell>
+                    <TableCell sx={{ fontSize: '1.2rem' }}>{maquina.zona}</TableCell>
                     <TableCell>
                       <Button
                         variant="contained"
@@ -220,9 +225,7 @@ const TablaMaquinas = ({ info, ext }) => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5}>
-                    No hay datos disponibles.
-                  </TableCell>
+                  <TableCell colSpan={4}>No hay datos disponibles.</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -247,9 +250,7 @@ const TablaMaquinas = ({ info, ext }) => {
       </Dialog>
 
       <Dialog open={openDialog} onClose={handleCloseDialog}>
-        <DialogTitle>
-          {extractionStatus === 'Completa' ? 'Finalizar Extracción' : 'Extracción No Realizada'}
-        </DialogTitle>
+        <DialogTitle>{extractionStatus === 'Completa' ? 'Finalizar Extracción' : 'Extracción No Realizada'}</DialogTitle>
         <DialogContent>
           {extractionStatus === 'Completa' ? (
             <TextField
@@ -264,12 +265,11 @@ const TablaMaquinas = ({ info, ext }) => {
           ) : (
             <FormControl fullWidth margin="normal">
               <InputLabel>Motivo</InputLabel>
-              <Select
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              >
+              <Select value={reason} onChange={(e) => setReason(e.target.value)}>
                 {predefinedReasons.map((reason, index) => (
-                  <MenuItem key={index} value={reason}>{reason}</MenuItem>
+                  <MenuItem key={index} value={reason}>
+                    {reason}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>

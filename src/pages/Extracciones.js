@@ -27,7 +27,7 @@ export const Extracciones = () => {
 useEffect(() => {
   const fetchEmpleados = async () => {
     try {
-      const response = await axios.get('http://localhost:4000/employees');
+      const response = await axios.get('https://extraccione-server.herokuapp.com/employees');
       const empleadosData = response.data.map((emp) => ({
         value: emp.nombre,
         label: emp.nombre,
@@ -42,32 +42,7 @@ useEffect(() => {
 }, []);
 
 
-  var asistentes = [
-    { value: 'CRIADO MOLINA GABRIEL DARIO', label: 'CRIADO MOLINA GABRIEL DARIO' },
-    { value: 'MADERA EMILIANO ', label: 'MADERA EMILIANO ' },
-    { value: 'MARQUEZ GARCIA', label: 'MARQUEZ GARCIA' },
-    { value: 'ABASTANTE MIGUEL ALBERTO', label: 'ABASTANTE MIGUEL ALBERTO' },
-    { value: 'ORTEGA OMAR', label: 'ORTEGA OMAR' },
-    { value: 'VACA PAULO', label: 'VACA PAULO' },
-    { value: 'VILLACORTA NAHUEL', label: 'VILLACORTA NAHUEL' },
-    { value: 'FARIAS KEVIN AXEL', label: 'FARIAS KEVIN AXEL' },
-    { value: 'CAMINOS GUSTAVO', label: 'CAMINOS GUSTAVO' },
-    { value: 'LEYES GABRIEL', label: 'LEYES GABRIEL' },
-    { value: 'MUNICOY GUSTAVO', label: 'MUNICOY GUSTAVO' },
-    { value: 'CARDOZO MAURICIO', label: 'CARDOZO MAURICIO' },
-    { value: 'CASTILLO ROQUE', label: 'CASTILLO ROQUE' },
-    { value: 'ROMAGNOLO GUSTAVO', label: 'ROMAGNOLO GUSTAVO' },
-    { value: 'ALDAO CHRISTIAN DARIO', label: 'ALDAO CHRISTIAN DARIO' },
-    { value: 'MONTOYA EMMANUEL', label: 'MONTOYA EMMANUEL' },
-    { value: 'RODRIGUEZ HORACIO', label: 'RODRIGUEZ HORACIO' },
-    { value: 'OCHOA SERGIO HERNAN', label: 'OCHOA SERGIO HERNAN' },
-    { value: 'CAVEZZALI PABLO', label: 'CAVEZZALI PABLO' },
-    { value: 'PRIETO JUAN', label:'PRIETO JUAN'},
-    { value: 'MOLINARI MARCELO', label:'MOLINARI MARCELO'},
-    { value: 'ANTICIPADA', label:'ANTICIPADA'},
-    
-  ]
-
+  
   const handleChange = event => {
 
     if (extracciones[1] !== undefined) {
@@ -89,9 +64,13 @@ useEffect(() => {
 
 
     console.log('boton');
+    
     // setMaquina(props.maq)
 
     async function findMachine() {
+
+      console.log(maquina);
+      
 
       const resp = await getInfo(maquina);
 
