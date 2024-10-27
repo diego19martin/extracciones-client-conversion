@@ -34,13 +34,20 @@ const StyledTableRow = styled(TableRow)(({ theme, status }) => ({
     'inherit',
 }));
 
+// Selección dinámica del endpoint
+const API_URL = process.env.NODE_ENV === 'production'
+  ? process.env.REACT_APP_HOST_HEROKU  // Heroku en producción
+  : process.env.NODE_ENV === 'vercel'
+  ? process.env.REACT_APP_HOST_VERCEL  // Vercel en producción
+  : process.env.REACT_APP_HOST_LOCAL;  // Local en desarrollo
+
 function Conversion() {
   const [items, setItems] = useState([0]);
   const [table, setTable] = useState([]);
   
   useEffect(() => {
 
-    const socket = io('https://extraccione-server.herokuapp.com'); 
+    const socket = io(API_URL); // Usar la URL adecuada
 
     // const socket = io('http://localhost:4000/'); 
 

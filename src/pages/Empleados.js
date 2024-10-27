@@ -5,7 +5,12 @@ import { Button, TextField, Table, TableBody, TableCell, TableContainer, TableHe
 import { Header } from '../components/Header';
 import { Link } from 'react-router-dom';
 
-const API_BASE_URL = 'https://extraccione-server.herokuapp.com';
+// Selección dinámica del endpoint
+const API_URL = process.env.NODE_ENV === 'production'
+  ? process.env.REACT_APP_HOST_HEROKU
+  : process.env.NODE_ENV === 'vercel'
+  ? process.env.REACT_APP_HOST_VERCEL
+  : process.env.REACT_APP_HOST_LOCAL;
 
 export default function GestionEmpleados() {
   const [employees, setEmployees] = useState([]);
@@ -20,7 +25,7 @@ export default function GestionEmpleados() {
 
   const fetchEmployees = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/employees`);
+      const response = await axios.get(`${API_URL}/employees`);
       setEmployees(response.data);
     } catch (error) {
       console.error('Error al obtener empleados:', error);
@@ -30,7 +35,7 @@ export default function GestionEmpleados() {
   const handleAddEmployee = async () => {
     if (newEmployee.nombre) {
       try {
-        const response = await axios.post(`${API_BASE_URL}/employees`, newEmployee);
+        const response = await axios.post(`${API_URL}/employees`, newEmployee);
         setEmployees([...employees, response.data]);
         setNewEmployee({ nombre: '' });
         handleCloseAddDialog();
@@ -61,7 +66,7 @@ export default function GestionEmpleados() {
   const handleConfirmDelete = async () => {
     if (employeeToDelete) {
       try {
-        const response = await fetch(`${API_BASE_URL}/employees/${employeeToDelete.empleado_id}`, {
+        const response = await fetch(`${API_URL}/employees/${employeeToDelete.empleado_id}`, {
           method: 'DELETE',
         });
 
@@ -92,7 +97,7 @@ export default function GestionEmpleados() {
       const newEmployees = data.slice(1).map((row) => ({ nombre: row[0] }));
 
       try {
-        await axios.post(`${API_BASE_URL}/employees/upload`, { employees: newEmployees });
+        await axios.post(`${API_URL}/employees/upload`, { employees: newEmployees });
         fetchEmployees();
       } catch (error) {
         console.error('Error al cargar empleados desde Excel:', error);

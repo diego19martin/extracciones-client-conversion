@@ -9,11 +9,18 @@ import Swal from 'sweetalert2';
 import { useEffect } from 'react';
 import axios from 'axios';
 
+// Selección dinámica del endpoint
+const API_URL = process.env.NODE_ENV === 'production'
+  ? process.env.REACT_APP_HOST_HEROKU // Heroku en producción
+  : process.env.NODE_ENV === 'vercel'
+  ? process.env.REACT_APP_HOST_VERCEL // Vercel en producción
+  : process.env.REACT_APP_HOST_LOCAL; // Localhost en desarrollo
+
 
 
 export const Extracciones = () => {
 
-
+  
   const [infoMaquinas, setInfoMaquinas] = useState(['']);
   const [maquina, setMaquina] = useState('');
   const [extracciones, setExtracciones] = useState([])
@@ -27,7 +34,7 @@ export const Extracciones = () => {
 useEffect(() => {
   const fetchEmpleados = async () => {
     try {
-      const response = await axios.get('https://extraccione-server.herokuapp.com/employees');
+      const response = await axios.get(`${API_URL}/api/employees`);
       const empleadosData = response.data.map((emp) => ({
         value: emp.nombre,
         label: emp.nombre,

@@ -22,7 +22,15 @@ function valuetext(value) {
   return `${value}°C`;
 }
 
+// Selección dinámica del endpoint
+const API_URL = process.env.NODE_ENV === 'production'
+  ? process.env.REACT_APP_HOST_HEROKU // Heroku en producción
+  : process.env.NODE_ENV === 'vercel'
+  ? process.env.REACT_APP_HOST_VERCEL // Vercel en producción
+  : process.env.REACT_APP_HOST_LOCAL; // Localhost en desarrollo
+
 export default function Range({ props }) {
+
   const [valuePesos, setValuePesos] = useState(0);
   const [valueDolares, setValueDolares] = useState(1);
   const [resumen, setResumen] = useState([]);
@@ -42,7 +50,7 @@ export default function Range({ props }) {
 
   useEffect(() => {
 
-    const newSocket = io('https://extraccione-server.herokuapp.com');
+    const newSocket = io(API_URL); // Conectar al endpoint correcto
 
     // const newSocket = io('http://localhost:4000/');
 
@@ -63,29 +71,24 @@ export default function Range({ props }) {
 
   const handleTableUpdate = (updatedTable) => {
     console.log('Datos recibidos:', updatedTable);
-    const listadoFiltrado = updatedTable.filter(item => 
-      (item.moneda === 'pesos' && item.bill >= valuePesos) || 
-      (item.moneda === 'dolares' && item.bill >= valueDolares)
-    );
-    
-    console.log('listadofiltrado:', listadoFiltrado);
-    
-    setListadoFinal(listadoFiltrado);
-    if (listadoFiltrado.length > 0) {
-      setFecha(listadoFiltrado[0].fecha);
-    }
+  
+    // Aquí llamamos directamente a updateSummary para asegurarnos de que se use la tabla actualizada
     updateSummary(valuePesos, valueDolares, updatedTable);
-  };
+};
+
+
+  
 
   const handleChangePesos = (event, newValue) => {
-    setValuePesos(newValue);
-    updateSummary(newValue, valueDolares, resumen);
+      setValuePesos(newValue);
+      updateSummary(newValue, valueDolares, resumen);  // Solo actualizar el resumen aquí
   };
 
   const handleChangeDolares = (event, newValue) => {
-    setValueDolares(newValue);
-    updateSummary(valuePesos, newValue, resumen);
+      setValueDolares(newValue);
+      updateSummary(valuePesos, newValue, resumen);  // Solo actualizar el resumen aquí
   };
+
 
   const updateSummary = (pesosValue, dolaresValue, data) => {
     let extraerPesos = 0;
@@ -93,71 +96,92 @@ export default function Range({ props }) {
     let dineroEnStackerPesos = 0;
     let extraerDolares = 0;
     let sumTotalDolares = 0;
-    let stackerDolares = 0;
+    let dineroEnStackerDolares = 0;
 
-    for (let i = 0; i < data.length; i++) {
-      if (data[i].moneda === 'pesos') {
-        if (data[i].bill >= pesosValue) {
-          extraerPesos++;
-          sumTotalPesos += data[i].bill;
-        } else {
-          dineroEnStackerPesos += data[i].bill;
+    // Calcular dinero en stacker: máquinas con bill menor al límite
+    data.forEach(machine => {
+        const bill = parseFloat(machine.bill);
+        if (machine.moneda === 'pesos') {
+            if (bill < pesosValue) {
+                // Sumar el valor de las máquinas que no cumplen el límite de pesos
+                dineroEnStackerPesos += bill;
+            }
+        } else if (machine.moneda === 'dolares') {
+            if (bill < dolaresValue) {
+                // Sumar el valor de las máquinas que no cumplen el límite de dólares
+                dineroEnStackerDolares += bill;
+            }
         }
-      } else if (data[i].moneda === 'dolares') {
-        if (data[i].bill >= dolaresValue) {
-          extraerDolares++;
-          sumTotalDolares += data[i].bill;
-        } else {
-          stackerDolares += data[i].bill;
-        }
-      }
-    }
+    });
 
+    // Filtrar las máquinas que cumplen con los límites seleccionados
+    const listadoFiltrado = data.filter(machine => 
+        (machine.moneda === 'pesos' && parseFloat(machine.bill) >= pesosValue) || 
+        (machine.moneda === 'dolares' && parseFloat(machine.bill) >= dolaresValue)
+    );
+
+    // Ahora que tenemos el listado filtrado, calculemos el resumen
+    listadoFiltrado.forEach(machine => {
+        const bill = parseFloat(machine.bill);
+        if (machine.moneda === 'pesos') {
+            sumTotalPesos += bill;
+            extraerPesos++;
+        } else if (machine.moneda === 'dolares') {
+            sumTotalDolares += bill;
+            extraerDolares++;
+        }
+    });
+
+    // Actualizar el estado de las cantidades y totales
     setCant(extraerPesos);
     setTotal(sumTotalPesos);
-    setDineroEnStacker(dineroEnStackerPesos);
+    setDineroEnStacker(dineroEnStackerPesos);  // Dinero en stacker para pesos
+
     setCantDolares(extraerDolares);
     setTotalDolares(sumTotalDolares);
-    setDineroEnStackerDolares(stackerDolares);
-  };
+    setDineroEnStackerDolares(dineroEnStackerDolares);  // Dinero en stacker para dólares
 
-  const handleClick = async () => {
-    setIsLoading(true);
-    try {
-        // Enviar la configuración y máquinas al backend junto con los límites
-        await postMaquinas({ machines: resumen, valuePesos, valueDolares });
-
-        // Confirmar la configuración de límites
-        await postConfig({ valuePesos, valueDolares });
-
-        // Después de confirmar, filtrar los datos nuevamente para reflejar los límites
-        const updatedListado = resumen.filter(item => 
-            (item.moneda === 'pesos' && item.bill >= valuePesos) || 
-            (item.moneda === 'dolares' && item.bill >= valueDolares)
-        );
-
-        console.log(updatedListado);
-        
-
-        setListadoFinal(updatedListado); // Actualizar la lista de máquinas a mostrar
-
-        Swal.fire({
-            icon: 'success',
-            title: 'Configuración confirmada',
-            text: 'Los datos de límites en pesos y dólares han sido enviados correctamente.',
-        });
-    } catch (error) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'Hubo un problema al enviar la configuración.',
-        });
-    } finally {
-        setIsLoading(false);
-    }
+    // Guardar el listado filtrado en el estado listadoFinal para luego enviarlo al servidor
+    setListadoFinal(listadoFiltrado);
 };
 
+
   
+
+const handleClick = async () => {
+  if (listadoFinal.length === 0) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Error',
+      text: 'No hay máquinas disponibles para enviar.',
+    });
+    return;
+  }
+
+  setIsLoading(true);
+  try {
+    console.log('Enviando máquinas:', listadoFinal);
+
+    // Enviar la configuración y las máquinas filtradas al backend
+    await postMaquinas({ machines: resumen, valuePesos, valueDolares });
+    await postConfig({ valuePesos, valueDolares });
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Configuración confirmada',
+      text: 'Los datos de límites han sido enviados correctamente.',
+    });
+  } catch (error) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'Hubo un problema al enviar la configuración.',
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   useEffect(() => {
     setResumen(props);
@@ -194,6 +218,7 @@ export default function Range({ props }) {
 };
 
   
+  console.log(cant, cantDolares);
   
   
 
