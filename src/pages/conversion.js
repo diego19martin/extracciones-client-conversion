@@ -41,6 +41,9 @@ const API_URL = process.env.NODE_ENV === 'production'
   ? process.env.REACT_APP_HOST_VERCEL  // Vercel en producción
   : process.env.REACT_APP_HOST_LOCAL;  // Local en desarrollo
 
+  console.log(API_URL);
+  
+
 function Conversion() {
   const [items, setItems] = useState([0]);
   const [table, setTable] = useState([]);
