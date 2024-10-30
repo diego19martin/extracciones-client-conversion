@@ -194,13 +194,13 @@ const TablaMaquinas = ({ info, ext }) => {
         Extracciones en Sala
       </Typography>
       <StyledTableContainer component={Paper}>
-        <Table stickyHeader sx={{ minWidth: '100%' }}>
+        <Table sx={{ minWidth: '100%' }}>
           <TableHead>
           <TableRow>
-            <TableCell sx={{ fontSize: '1rem', fontWeight: 'bold' }}>Máquina</TableCell>
-            <TableCell sx={{ fontSize: '1rem', fontWeight: 'bold' }}>Location</TableCell>
-            <TableCell sx={{ fontSize: '1rem', fontWeight: 'bold' }}>Zona</TableCell>
-            <TableCell sx={{ fontSize: '1rem', fontWeight: 'bold' }}>Acción</TableCell>
+            <TableCell style={{padding: '5px', textAlign: 'center'}} sx={{ fontSize: '1rem', fontWeight: 'bold' }}>Máquina</TableCell>
+            <TableCell style={{padding: '5px', textAlign: 'center'}} sx={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Location</TableCell>
+            <TableCell style={{padding: '5px', textAlign: 'center'}} sx={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Zona</TableCell>
+            <TableCell style={{padding: '5px', textAlign: 'center'}} sx={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Acción</TableCell>
           </TableRow>
           </TableHead>
           {showTableBody && (
@@ -208,15 +208,16 @@ const TablaMaquinas = ({ info, ext }) => {
               {Array.isArray(maquinas) && maquinas.length > 0 ? (
                 maquinas.map((maquina, index) => (
                   <StyledTableRow key={index} status={maquina.finalizado}>
-                    <TableCell sx={{ fontSize: '1.2rem' }}>{maquina.maquina}</TableCell>
-                    <TableCell sx={{ fontSize: '1.2rem' }}>{maquina.location}</TableCell>
-                    <TableCell sx={{ fontSize: '1.2rem' }}>{maquina.zona}</TableCell>
-                    <TableCell>
+                    <TableCell style={{padding: '5px', textAlign: 'center'}} sx={{ fontSize: '1.2rem' }}>{maquina.maquina}</TableCell>
+                    <TableCell style={{padding: '5px', textAlign: 'center'}} sx={{ fontSize: '0.9rem' }}>{maquina.location}</TableCell>
+                    <TableCell style={{padding: '5px', textAlign: 'center'}} sx={{ fontSize: '0.9rem' }}>{maquina.zona}</TableCell>
+                    <TableCell style={{width: '5px', padding: '5px', fontSize: '10px', textAlign: 'center'}}>
                       <Button
                         variant="contained"
                         color="primary"
                         size="small"
                         onClick={() => handleFinalizar(maquina)}
+                        style={{width: '5px', padding: '5px', fontSize: '10px', textAlign: 'center'}}
                       >
                         Finalizar
                       </Button>
