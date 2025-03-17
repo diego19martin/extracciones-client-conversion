@@ -19,8 +19,11 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Chip,
-  Stack
+  useMediaQuery,
+  useTheme,
+  Divider,
+  Stack,
+  Container
 } from '@mui/material';
 import { postConfig, postGenerateReport, postMaquinas, postGenerateDailyReport } from '../api/conversion.api';
 import Swal from 'sweetalert2';
@@ -39,6 +42,9 @@ const API_URL = process.env.NODE_ENV === 'production'
   : process.env.REACT_APP_HOST_LOCAL; // Localhost en desarrollo
 
 export default function Range({ props }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   // Estados originales
   const [valuePesos, setValuePesos] = useState(0);
   const [valueDolares, setValueDolares] = useState(1);
@@ -56,7 +62,7 @@ export default function Range({ props }) {
   // Nuevos estados para paginación y filtrado
   const [page, setPage] = useState(1);
   const [estadoFiltro, setEstadoFiltro] = useState('No iniciado'); // Por defecto mostrar las no iniciadas
-  const [itemsPerPage] = useState(20);
+  const [itemsPerPage] = useState(isMobile ? 10 : 20); // Menos elementos por página en móvil
 
   // Calcular conteos para el resumen
   const conteos = useMemo(() => {
@@ -324,16 +330,16 @@ export default function Range({ props }) {
   };
 
   return (
-    <Card sx={{ maxWidth: 800, margin: 'auto', mt: 4 }}>
-      <CardContent>
-        <Typography variant="h5" component="div" gutterBottom>
+    <Card sx={{ maxWidth: '100%', margin: 'auto', mt: 2 }}>
+      <CardContent sx={{ p: isMobile ? 1 : 2 }}>
+        <Typography variant={isMobile ? "h6" : "h5"} component="div" gutterBottom align="center">
           Configuración de Extracción de Casino
         </Typography>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
+        <Typography variant="body2" color="text.secondary" gutterBottom align="center">
           Ajuste los límites de extracción y revise el resumen
         </Typography>
 
-        <Box sx={{ my: 4 }}>
+        <Box sx={{ my: 3 }}>
           <Typography gutterBottom>Límite de dinero a extraer por máquina (Pesos)</Typography>
           <Slider
             value={valuePesos}
@@ -349,7 +355,7 @@ export default function Range({ props }) {
           </Typography>
         </Box>
 
-        <Box sx={{ my: 4 }}>
+        <Box sx={{ my: 3 }}>
           <Typography gutterBottom>Límite de dólares a extraer por máquina</Typography>
           <Slider
             value={valueDolares}
@@ -365,124 +371,205 @@ export default function Range({ props }) {
           </Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', my: 4 }}>
-          <Box sx={{ textAlign: 'center' }}>
+        {/* Panel de información para pesos - Adaptable para móvil */}
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: isMobile ? 'column' : 'row',
+            justifyContent: 'space-between', 
+            my: 2,
+            gap: 2 
+          }}
+        >
+          <Box sx={{ textAlign: 'center', flex: 1, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
             <Typography variant="body2" color="text.secondary">Máquinas a extraer</Typography>
             <Typography variant="h6">{cant}</Typography>
           </Box>
-          <Box sx={{ textAlign: 'center' }}>
+          <Box sx={{ textAlign: 'center', flex: 1, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
             <Typography variant="body2" color="text.secondary">Total a extraer</Typography>
             <Typography variant="h6">${total.toLocaleString('en-US')}</Typography>
           </Box>
-          <Box sx={{ textAlign: 'center' }}>
+          <Box sx={{ textAlign: 'center', flex: 1, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
             <Typography variant="body2" color="text.secondary">Dinero en stacker</Typography>
             <Typography variant="h6">${dineroEnStacker.toLocaleString('en-US')}</Typography>
           </Box>
         </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', my: 4, mt: 6 }}>
-          <Typography variant="h6" gutterBottom>
+        <Box sx={{ my: 3 }}>
+          <Typography variant="h6" gutterBottom align="center">
             Resumen de Máquinas en Dólares
           </Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', my: 4 }}>
-          <Box sx={{ textAlign: 'center' }}>
+        {/* Panel de información para dólares - Adaptable para móvil */}
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: isMobile ? 'column' : 'row',
+            justifyContent: 'space-between', 
+            my: 2,
+            gap: 2 
+          }}
+        >
+          <Box sx={{ textAlign: 'center', flex: 1, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
             <Typography variant="body2" color="text.secondary">Máquinas a extraer (Dólares)</Typography>
             <Typography variant="h6">{cantDolares}</Typography>
           </Box>
-          <Box sx={{ textAlign: 'center' }}>
+          <Box sx={{ textAlign: 'center', flex: 1, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
             <Typography variant="body2" color="text.secondary">Total a extraer (Dólares)</Typography>
             <Typography variant="h6">${totalDolares.toLocaleString('en-US')}</Typography>
           </Box>
-          <Box sx={{ textAlign: 'center' }}>
+          <Box sx={{ textAlign: 'center', flex: 1, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
             <Typography variant="body2" color="text.secondary">Dinero en stacker (Dólares)</Typography>
             <Typography variant="h6">${dineroEnStackerDolares.toLocaleString('en-US')}</Typography>
           </Box>
         </Box>
 
-        <Button variant='contained' color='primary' onClick={handleClick} disabled={isLoading}>
-          {isLoading ? 'Procesando...' : 'Confirmar configuración'}
-        </Button>
-
-        <Box sx={{ my: 4 }}>
-          <Button
-              variant='contained'
-              color='secondary'
-              onClick={handleGenerateReport}
-              disabled={isLoading}
-              sx={{ mt: 2, mr: 2 }}
+        {/* Botón de confirmar configuración */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+          <Button 
+            variant='contained' 
+            color='primary' 
+            onClick={handleClick} 
+            disabled={isLoading}
+            fullWidth={isMobile}
+            size={isMobile ? "large" : "medium"}
+            sx={{ maxWidth: isMobile ? '100%' : '400px' }}
           >
-              {isLoading ? 'Generando reporte...' : 'Enviar reporte técnica'}
-          </Button>
-          
-          <Button
-              variant='contained'
-              color='primary'
-              onClick={handleGenerateDailyReport}
-              disabled={isLoading}
-              sx={{ mt: 2 }}
-          >
-              {isLoading ? 'Generando reporte...' : 'Enviar resumen extracciones'}
+            {isLoading ? 'Procesando...' : 'CONFIRMAR CONFIGURACIÓN'}
           </Button>
         </Box>
 
+        {/* Botones de reporte - Adaptable para móvil */}
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: isMobile ? 'column' : 'row',
+            justifyContent: 'center', 
+            my: 2,
+            gap: 2 
+          }}
+        >
+          <Button
+            variant='contained'
+            color='secondary'
+            onClick={handleGenerateReport}
+            disabled={isLoading}
+            fullWidth={isMobile}
+            size={isMobile ? "large" : "medium"}
+            sx={{ maxWidth: isMobile ? '100%' : '300px' }}
+          >
+            {isLoading ? 'Generando...' : 'ENVIAR REPORTE TÉCNICA'}
+          </Button>
+          
+          <Button
+            variant='contained'
+            color='primary'
+            onClick={handleGenerateDailyReport}
+            disabled={isLoading}
+            fullWidth={isMobile}
+            size={isMobile ? "large" : "medium"}
+            sx={{ maxWidth: isMobile ? '100%' : '300px' }}
+          >
+            {isLoading ? 'Generando...' : 'ENVIAR RESUMEN EXTRACCIONES'}
+          </Button>
+        </Box>
+
+        <Divider sx={{ my: 3 }} />
+
         {/* Sección de la tabla con resumen, filtros y paginación */}
-        <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
+        <Typography variant="h6" gutterBottom sx={{ mt: 3 }} align="center">
           Listado de Máquinas
         </Typography>
 
-        {/* Cuadro resumen */}
+        {/* Cuadro resumen - Con contenedor centrado para escritorio */}
         {!loadingData && (
-          <Paper elevation={2} sx={{ p: 2, mb: 3, backgroundColor: '#f8f9fa' }}>
-            <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-              Resumen de Estado
-            </Typography>
-            <Grid container spacing={3}>
-              <Grid item xs={12} sm={6} md={3}>
-                <Box sx={{ textAlign: 'center', p: 1, borderRadius: 1 }}>
-                  <Chip 
-                    label={`Completadas: ${conteos.completadas}`} 
-                    color="success" 
-                    sx={{ fontSize: '1rem', width: '100%', height: 'auto', py: 1 }}
-                  />
+          <Box sx={{ 
+            mb: 3,
+            display: 'flex',
+            justifyContent: 'center'
+          }}>
+            <Box sx={{ 
+              width: '100%', 
+              maxWidth: isMobile ? '100%' : '600px' // Ancho limitado en escritorio
+            }}>
+              <Typography variant="subtitle1" gutterBottom fontWeight="bold" align="center">
+                Resumen de Estado
+              </Typography>
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column',
+                gap: 1
+              }}>
+                {/* Completadas - Barra verde */}
+                <Box sx={{ 
+                  bgcolor: '#2e7d32', 
+                  color: 'white', 
+                  p: 1.5, 
+                  borderRadius: 1,
+                  display: 'flex',
+                  justifyContent: 'space-between'
+                }}>
+                  <Typography variant="body1">Completadas:</Typography>
+                  <Typography variant="body1" fontWeight="bold">{conteos.completadas}</Typography>
                 </Box>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Box sx={{ textAlign: 'center', p: 1, borderRadius: 1 }}>
-                  <Chip 
-                    label={`Pendientes: ${conteos.pendientes}`} 
-                    color="warning" 
-                    sx={{ fontSize: '1rem', width: '100%', height: 'auto', py: 1 }}
-                  />
+                
+                {/* Pendientes - Barra naranja */}
+                <Box sx={{ 
+                  bgcolor: '#ed6c02', 
+                  color: 'white', 
+                  p: 1.5, 
+                  borderRadius: 1,
+                  display: 'flex',
+                  justifyContent: 'space-between'
+                }}>
+                  <Typography variant="body1">Pendientes:</Typography>
+                  <Typography variant="body1" fontWeight="bold">{conteos.pendientes}</Typography>
                 </Box>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Box sx={{ textAlign: 'center', p: 1, borderRadius: 1 }}>
-                  <Chip 
-                    label={`No iniciadas: ${conteos.noIniciadas}`} 
-                    color="error" 
-                    sx={{ fontSize: '1rem', width: '100%', height: 'auto', py: 1 }}
-                  />
+                
+                {/* No iniciadas - Barra roja */}
+                <Box sx={{ 
+                  bgcolor: '#d32f2f', 
+                  color: 'white', 
+                  p: 1.5, 
+                  borderRadius: 1,
+                  display: 'flex',
+                  justifyContent: 'space-between'
+                }}>
+                  <Typography variant="body1">No iniciadas:</Typography>
+                  <Typography variant="body1" fontWeight="bold">{conteos.noIniciadas}</Typography>
                 </Box>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Box sx={{ textAlign: 'center', p: 1, borderRadius: 1 }}>
-                  <Chip 
-                    label={`Total: ${conteos.total}`} 
-                    color="primary" 
-                    sx={{ fontSize: '1rem', width: '100%', height: 'auto', py: 1 }}
-                  />
+                
+                {/* Total - Barra azul */}
+                <Box sx={{ 
+                  bgcolor: '#1976d2', 
+                  color: 'white', 
+                  p: 1.5, 
+                  borderRadius: 1,
+                  display: 'flex',
+                  justifyContent: 'space-between'
+                }}>
+                  <Typography variant="body1">Total:</Typography>
+                  <Typography variant="body1" fontWeight="bold">{conteos.total}</Typography>
                 </Box>
-              </Grid>
-            </Grid>
-          </Paper>
+              </Box>
+            </Box>
+          </Box>
         )}
 
-        {/* Filtros y controles */}
+        {/* Filtros y controles - Optimizado para móvil */}
         {!loadingData && (
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <FormControl sx={{ minWidth: 200 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: isMobile ? 'column' : 'row',
+            justifyContent: 'space-between', 
+            alignItems: isMobile ? 'stretch' : 'center', 
+            mb: 2,
+            gap: 2,
+            maxWidth: isMobile ? '100%' : '900px',
+            mx: 'auto'
+          }}>
+            <FormControl fullWidth={isMobile} sx={{ maxWidth: isMobile ? '100%' : '250px' }}>
               <InputLabel id="estado-filtro-label">Filtrar por estado</InputLabel>
               <Select
                 labelId="estado-filtro-label"
@@ -490,6 +577,7 @@ export default function Range({ props }) {
                 value={estadoFiltro}
                 label="Filtrar por estado"
                 onChange={handleFilterChange}
+                size={isMobile ? "small" : "medium"}
               >
                 <MenuItem value="Todos">Todos</MenuItem>
                 <MenuItem value="Completa">Completadas</MenuItem>
@@ -498,28 +586,43 @@ export default function Range({ props }) {
               </Select>
             </FormControl>
             
-            <Typography variant="body2" color="text.secondary">
-              Mostrando {datosFiltrados.length > 0 ? (page - 1) * itemsPerPage + 1 : 0} - {Math.min(page * itemsPerPage, datosFiltrados.length)} de {datosFiltrados.length} máquinas
-            </Typography>
+            {!isMobile && (
+              <Typography variant="body2" color="text.secondary">
+                Mostrando {datosFiltrados.length > 0 ? (page - 1) * itemsPerPage + 1 : 0} - {Math.min(page * itemsPerPage, datosFiltrados.length)} de {datosFiltrados.length} máquinas
+              </Typography>
+            )}
           </Box>
         )}
 
-        {/* Tabla de máquinas */}
+        {/* Tabla de máquinas - Optimizada para móvil y centrada en escritorio */}
         {loadingData ? (
-          <Typography>Cargando datos...</Typography>
+          <Typography align="center" sx={{ py: 4 }}>Cargando datos...</Typography>
         ) : (
-          <>
-            <TableContainer component={Paper}>
-              <Table sx={{ minWidth: 650 }} aria-label="simple table">
+          <Box sx={{ 
+            maxWidth: isMobile ? '100%' : '900px',
+            mx: 'auto'
+          }}>
+            <TableContainer 
+              component={Paper} 
+              sx={{ 
+                maxHeight: isMobile ? 'calc(100vh - 600px)' : 'auto',
+                overflowX: 'auto' 
+              }}
+            >
+              <Table 
+                sx={{ minWidth: isMobile ? 400 : 650 }} 
+                aria-label="tabla de máquinas"
+                size={isMobile ? "small" : "medium"}
+              >
                 <TableHead>
                   <TableRow>
-                    <TableCell>#</TableCell>
-                    <TableCell>Máquina</TableCell>
-                    <TableCell>Location</TableCell>
-                    <TableCell>Asistente 1</TableCell>
-                    <TableCell>Asistente 2</TableCell>
-                    <TableCell>Extracción</TableCell>
-                    <TableCell>Comentario</TableCell>
+                    <TableCell padding={isMobile ? "none" : "normal"}>#</TableCell>
+                    <TableCell padding={isMobile ? "none" : "normal"}>Máquina</TableCell>
+                    <TableCell padding={isMobile ? "none" : "normal"}>Location</TableCell>
+                    {!isMobile && <TableCell>Asistente 1</TableCell>}
+                    {!isMobile && <TableCell>Asistente 2</TableCell>}
+                    <TableCell padding={isMobile ? "none" : "normal"}>Estado</TableCell>
+                    {!isMobile && <TableCell>Comentario</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -534,26 +637,33 @@ export default function Range({ props }) {
                                           'transparent'
                         }}
                       >
-                        <TableCell component="th" scope="row">{(page - 1) * itemsPerPage + index + 1}</TableCell>
-                        <TableCell>{item.maquina || item.machine}</TableCell>
-                        <TableCell>{item.location}</TableCell>
-                        <TableCell>{item.asistente1 || '-'}</TableCell>
-                        <TableCell>{item.asistente2 || '-'}</TableCell>
-                        <TableCell>{item.finalizado || 'No iniciado'}</TableCell>
-                        <TableCell>{item.comentario || '-'}</TableCell>
+                        <TableCell padding={isMobile ? "none" : "normal"} component="th" scope="row">{(page - 1) * itemsPerPage + index + 1}</TableCell>
+                        <TableCell padding={isMobile ? "none" : "normal"}>{item.maquina || item.machine}</TableCell>
+                        <TableCell padding={isMobile ? "none" : "normal"}>{item.location}</TableCell>
+                        {!isMobile && <TableCell>{item.asistente1 || '-'}</TableCell>}
+                        {!isMobile && <TableCell>{item.asistente2 || '-'}</TableCell>}
+                        <TableCell padding={isMobile ? "none" : "normal"}>{item.finalizado || 'No iniciado'}</TableCell>
+                        {!isMobile && <TableCell>{item.comentario || '-'}</TableCell>}
                       </TableRow>
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7} align="center">No hay máquinas que coincidan con el filtro seleccionado</TableCell>
+                      <TableCell colSpan={isMobile ? 4 : 7} align="center">No hay máquinas que coincidan con el filtro seleccionado</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
             </TableContainer>
 
+            {/* Información de paginación para móvil */}
+            {isMobile && datosFiltrados.length > 0 && (
+              <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 1 }}>
+                Mostrando {(page - 1) * itemsPerPage + 1} - {Math.min(page * itemsPerPage, datosFiltrados.length)} de {datosFiltrados.length}
+              </Typography>
+            )}
+
             {/* Paginación */}
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
               <Pagination 
                 count={totalPages} 
                 page={page} 
@@ -561,9 +671,10 @@ export default function Range({ props }) {
                 color="primary" 
                 showFirstButton 
                 showLastButton
+                size={isMobile ? "small" : "medium"}
               />
             </Box>
-          </>
+          </Box>
         )}
       </CardContent>
     </Card>
