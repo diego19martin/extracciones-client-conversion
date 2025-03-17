@@ -14,7 +14,7 @@ import {
   TableRow, 
   Paper
 } from '@mui/material';
-import { getTable, postConfig, postGenerateReport, postMaquinas } from '../api/conversion.api';
+import { getTable, postConfig, postGenerateDailyReport, postGenerateReport, postMaquinas } from '../api/conversion.api';
 import Swal from 'sweetalert2';
 import io from 'socket.io-client';
 
@@ -217,6 +217,31 @@ const handleClick = async () => {
     }
 };
 
+const handleGenerateDailyReport = async () => {
+  setIsLoading(true); // Iniciar el estado de cargando
+  try {
+      // Realiza una petición al backend para generar y enviar el reporte diario
+      await postGenerateDailyReport();
+
+      console.log('generateDailyReport');
+      
+      Swal.fire({
+          icon: 'success',
+          title: 'Resumen extracciones generado',
+          text: 'El resumen de extracciones se ha generado y enviado correctamente.',
+      });
+
+  } catch (error) {
+      Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Hubo un problema al generar el resumen de extracciones.',
+      });
+  } finally {
+      setIsLoading(false); // Asegurar que el botón se habilite siempre
+  }
+};
+
   
   console.log(cant, cantDolares);
   
@@ -305,16 +330,26 @@ const handleClick = async () => {
         </Button>
 
         <Box sx={{ my: 4 }}>
-    <Button
-        variant='contained'
-        color='secondary'
-        onClick={handleGenerateReport}
-        disabled={isLoading}
-        sx={{ mt: 2 }}
-    >
-        {isLoading ? 'Generando reporte...' : 'Generar y enviar reporte'}
-    </Button>
-</Box>
+            <Button
+                variant='contained'
+                color='secondary'
+                onClick={handleGenerateReport}
+                disabled={isLoading}
+                sx={{ mt: 2, mr: 2 }}
+            >
+                {isLoading ? 'Generando reporte...' : 'Enviar reporte técnica'}
+            </Button>
+            
+            <Button
+                variant='contained'
+                color='primary'
+                onClick={handleGenerateDailyReport}
+                disabled={isLoading}
+                sx={{ mt: 2 }}
+            >
+                {isLoading ? 'Generando reporte...' : 'Enviar resumen extracciones'}
+            </Button>
+        </Box>
 
 
 

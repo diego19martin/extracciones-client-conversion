@@ -52,6 +52,10 @@ export const getTable = async()=> {
 export const postGenerateReport = async () => {
     return await axios.post(`${API_URL}/api/generarReporte`);
   };
+
+  export const postGenerateDailyReport = async () => {
+    return await axios.post(`${API_URL}/api/generarReporteDiario`);
+};
   
 
 
