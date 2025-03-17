@@ -56,6 +56,12 @@ export const postGenerateReport = async () => {
   export const postGenerateDailyReport = async () => {
     return await axios.post(`${API_URL}/api/generarReporteDiario`);
 };
+
+
+export const getListadoFiltrado = async () => {
+    const res = await axios.get(`${API_URL}/api/getListadoFiltrado`);
+    return res.data;
+  };
   
 
 
