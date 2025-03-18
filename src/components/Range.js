@@ -23,12 +23,16 @@ import {
   useTheme,
   Divider,
   Stack,
-  Container
+  Container,
+  Tooltip,
+  Badge
 } from '@mui/material';
 import { postConfig, postGenerateReport, postMaquinas, postGenerateDailyReport } from '../api/conversion.api';
 import Swal from 'sweetalert2';
 import io from 'socket.io-client';
 import axios from 'axios';
+import { utils as XLSXUtils, write as XLSXWrite } from 'xlsx';
+import { saveAs } from 'file-saver';
 
 function valuetext(value) {
   return `${value}°C`;
@@ -66,17 +70,27 @@ export default function Range({ props }) {
 
   // Calcular conteos para el resumen
   const conteos = useMemo(() => {
-    if (!listadoFinal || listadoFinal.length === 0) return { completadas: 0, pendientes: 0, noIniciadas: 0, total: 0 };
+    if (!listadoFinal || listadoFinal.length === 0) return { 
+      completadas: 0, 
+      pendientes: 0, 
+      noIniciadas: 0, 
+      total: 0,
+      conNovedades: 0 // Nuevo contador para máquinas con comentarios
+    };
     
     const completadas = listadoFinal.filter(item => item.finalizado === 'Completa').length;
     const pendientes = listadoFinal.filter(item => item.finalizado === 'Pendiente').length;
     const noIniciadas = listadoFinal.filter(item => !item.finalizado || item.finalizado === 'No iniciado').length;
     
+    // Contar máquinas con comentarios
+    const conNovedades = listadoFinal.filter(item => item.comentario && item.comentario.trim() !== '').length;
+    
     return {
       completadas,
       pendientes,
       noIniciadas,
-      total: listadoFinal.length
+      total: listadoFinal.length,
+      conNovedades
     };
   }, [listadoFinal]);
 
@@ -90,6 +104,9 @@ export default function Range({ props }) {
     if (estadoFiltro !== 'Todos') {
       if (estadoFiltro === 'No iniciado') {
         filtered = filtered.filter(item => !item.finalizado || item.finalizado === 'No iniciado');
+      } else if (estadoFiltro === 'Con novedad') {
+        // Filtrar máquinas con comentarios
+        filtered = filtered.filter(item => item.comentario && item.comentario.trim() !== '');
       } else {
         filtered = filtered.filter(item => item.finalizado === estadoFiltro);
       }
@@ -109,6 +126,91 @@ export default function Range({ props }) {
     Math.max(1, Math.ceil(datosFiltrados.length / itemsPerPage)), 
     [datosFiltrados, itemsPerPage]
   );
+
+  // Función para exportar datos a Excel
+  const exportToExcel = (data, fileName = 'listado_maquinas.xlsx') => {
+    // Verificar si hay datos para exportar
+    if (!data || data.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Sin datos',
+        text: 'No hay datos para exportar.',
+      });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      // Preparar los datos para exportar
+      const exportData = data.map(item => ({
+        'Máquina': item.maquina || item.machine || '',
+        'Ubicación': item.location || '',
+        'Dinero': item.bill || '',
+        'Moneda': item.moneda || '',
+        'Estado': item.finalizado || 'No iniciado',
+        'Asistente 1': item.asistente1 || '',
+        'Asistente 2': item.asistente2 || '',
+        'Comentario': item.comentario || '',
+        'Zona': item.zona || ''
+      }));
+
+      // Crear una hoja de trabajo
+      const worksheet = XLSXUtils.json_to_sheet(exportData);
+      
+      // Ajustar ancho de columnas
+      const columnWidths = [
+        { wch: 15 },  // Máquina
+        { wch: 20 },  // Ubicación
+        { wch: 15 },  // Dinero
+        { wch: 10 },  // Moneda
+        { wch: 15 },  // Estado
+        { wch: 20 },  // Asistente 1
+        { wch: 20 },  // Asistente 2
+        { wch: 30 },  // Comentario
+        { wch: 10 }   // Zona
+      ];
+      
+      worksheet['!cols'] = columnWidths;
+
+      // Crear un libro de trabajo
+      const workbook = {
+        Sheets: { 'Listado Máquinas': worksheet },
+        SheetNames: ['Listado Máquinas']
+      };
+
+      // Generar el archivo Excel
+      const excelBuffer = XLSXWrite(workbook, { 
+        bookType: 'xlsx', 
+        type: 'array' 
+      });
+
+      // Convertir el buffer a un Blob
+      const blob = new Blob([excelBuffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+
+      // Guardar el archivo
+      saveAs(blob, fileName);
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Exportación completada',
+        text: `El archivo ${fileName} se ha descargado correctamente.`,
+        timer: 2000,
+        timerProgressBar: true
+      });
+    } catch (error) {
+      console.error('Error al exportar a Excel:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de exportación',
+        text: 'Ocurrió un problema al exportar los datos a Excel.'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Memoizamos las funciones para evitar recrearlas en cada render
   const updateSummary = useCallback((pesosValue, dolaresValue, data) => {
@@ -273,21 +375,30 @@ export default function Range({ props }) {
     setIsLoading(true); // Iniciar el estado de cargando
     try {
         // Realiza una petición al backend para generar y enviar el reporte
-        await postGenerateReport();
-
-        console.log('generateReport');
+        const response = await postGenerateReport();
+        console.log('generateReport response:', response);
+        
+        const { message, status } = response.data || { message: 'Reporte técnica generado correctamente', status: 'success' };
         
         Swal.fire({
-            icon: 'success',
-            title: 'Reporte técnica generado',
-            text: 'El reporte técnica se ha generado y enviado correctamente.',
+            icon: status || 'success',
+            title: status === 'warning' ? 'Aviso' : status === 'error' ? 'Error' : 'Éxito',
+            text: message || 'El reporte técnica se ha generado y enviado correctamente.',
         });
 
     } catch (error) {
+        console.error('Error al generar reporte:', error);
+        let errorMessage = 'Hubo un problema al generar el reporte técnica.';
+        
+        // Verificar si hay un mensaje de error específico en la respuesta
+        if (error.response && error.response.data && error.response.data.message) {
+            errorMessage = error.response.data.message;
+        }
+        
         Swal.fire({
             icon: 'error',
             title: 'Error',
-            text: 'Hubo un problema al generar el reporte técnica.',
+            text: errorMessage,
         });
     } finally {
         setIsLoading(false); // Asegurar que el botón se habilite siempre
@@ -298,21 +409,30 @@ export default function Range({ props }) {
     setIsLoading(true); // Iniciar el estado de cargando
     try {
         // Realiza una petición al backend para generar y enviar el reporte diario
-        await postGenerateDailyReport();
-
-        console.log('generateDailyReport');
+        const response = await postGenerateDailyReport();
+        console.log('generateDailyReport response:', response);
+        
+        const { message, status } = response.data || { message: 'El resumen de extracciones se ha generado y enviado correctamente', status: 'success' };
         
         Swal.fire({
-            icon: 'success',
-            title: 'Resumen extracciones generado',
-            text: 'El resumen de extracciones se ha generado y enviado correctamente.',
+            icon: status || 'success',
+            title: status === 'warning' ? 'Aviso' : status === 'error' ? 'Error' : 'Éxito',
+            text: message || 'El resumen de extracciones se ha generado y enviado correctamente.',
         });
 
     } catch (error) {
+        console.error('Error al generar reporte diario:', error);
+        let errorMessage = 'Hubo un problema al generar el resumen de extracciones.';
+        
+        // Verificar si hay un mensaje de error específico en la respuesta
+        if (error.response && error.response.data && error.response.data.message) {
+            errorMessage = error.response.data.message;
+        }
+        
         Swal.fire({
             icon: 'error',
             title: 'Error',
-            text: 'Hubo un problema al generar el resumen de extracciones.',
+            text: errorMessage,
         });
     } finally {
         setIsLoading(false); // Asegurar que el botón se habilite siempre
@@ -540,6 +660,19 @@ export default function Range({ props }) {
                   <Typography variant="body1" fontWeight="bold">{conteos.noIniciadas}</Typography>
                 </Box>
                 
+                {/* Novedades técnicas - Nueva barra púrpura */}
+                <Box sx={{ 
+                  bgcolor: '#9c27b0', 
+                  color: 'white', 
+                  p: 1.5, 
+                  borderRadius: 1,
+                  display: 'flex',
+                  justifyContent: 'space-between'
+                }}>
+                  <Typography variant="body1">Novedades técnicas:</Typography>
+                  <Typography variant="body1" fontWeight="bold">{conteos.conNovedades}</Typography>
+                </Box>
+                
                 {/* Total - Barra azul */}
                 <Box sx={{ 
                   bgcolor: '#1976d2', 
@@ -557,7 +690,7 @@ export default function Range({ props }) {
           </Box>
         )}
 
-        {/* Filtros y controles - Optimizado para móvil */}
+        {/* Filtros, controles y botón de exportación - Optimizado para móvil */}
         {!loadingData && (
           <Box sx={{ 
             display: 'flex', 
@@ -569,22 +702,51 @@ export default function Range({ props }) {
             maxWidth: isMobile ? '100%' : '900px',
             mx: 'auto'
           }}>
-            <FormControl fullWidth={isMobile} sx={{ maxWidth: isMobile ? '100%' : '250px' }}>
-              <InputLabel id="estado-filtro-label">Filtrar por estado</InputLabel>
-              <Select
-                labelId="estado-filtro-label"
-                id="estado-filtro"
-                value={estadoFiltro}
-                label="Filtrar por estado"
-                onChange={handleFilterChange}
-                size={isMobile ? "small" : "medium"}
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: 2,
+              width: isMobile ? '100%' : 'auto'
+            }}>
+              <FormControl fullWidth={isMobile} sx={{ maxWidth: isMobile ? '100%' : '250px' }}>
+                <InputLabel id="estado-filtro-label">Filtrar por estado</InputLabel>
+                <Select
+                  labelId="estado-filtro-label"
+                  id="estado-filtro"
+                  value={estadoFiltro}
+                  label="Filtrar por estado"
+                  onChange={handleFilterChange}
+                  size={isMobile ? "small" : "medium"}
+                >
+                  <MenuItem value="Todos">Todos</MenuItem>
+                  <MenuItem value="Completa">Completadas</MenuItem>
+                  <MenuItem value="Pendiente">Pendientes</MenuItem>
+                  <MenuItem value="No iniciado">No iniciadas</MenuItem>
+                  <MenuItem value="Con novedad">Con novedades técnicas</MenuItem>
+                </Select>
+              </FormControl>
+              
+              {/* Nuevo botón de exportar */}
+              <Button
+                variant="outlined"
+                color="success"
+                onClick={() => exportToExcel(
+                  // Si hay filtro aplicado, exportamos los datos filtrados
+                  estadoFiltro === 'Todos' ? listadoFinal : datosFiltrados,
+                  // Nombre del archivo basado en el filtro
+                  `maquinas_${estadoFiltro.toLowerCase().replace(' ', '_')}_${new Date().toISOString().split('T')[0]}.xlsx`
+                )}
+                startIcon={<span role="img" aria-label="download">📊</span>}
+                disabled={isLoading || listadoFinal.length === 0}
+                sx={{ 
+                  minWidth: isMobile ? '100%' : '140px',
+                  whiteSpace: 'nowrap',
+                  fontWeight: 'bold'
+                }}
               >
-                <MenuItem value="Todos">Todos</MenuItem>
-                <MenuItem value="Completa">Completadas</MenuItem>
-                <MenuItem value="Pendiente">Pendientes</MenuItem>
-                <MenuItem value="No iniciado">No iniciadas</MenuItem>
-              </Select>
-            </FormControl>
+                Exportar Excel
+              </Button>
+            </Box>
             
             {!isMobile && (
               <Typography variant="body2" color="text.secondary">
@@ -634,11 +796,24 @@ export default function Range({ props }) {
                           '&:last-child td, &:last-child th': { border: 0 },
                           backgroundColor: item.finalizado === 'Completa' ? 'rgba(134, 239, 172, 0.5)' : 
                                           item.finalizado === 'Pendiente' ? 'rgba(252, 165, 165, 0.5)' : 
+                                          item.comentario && item.comentario.trim() !== '' ? 'rgba(209, 196, 233, 0.5)' : // Color lila para máquinas con comentarios
                                           'transparent'
                         }}
                       >
                         <TableCell padding={isMobile ? "none" : "normal"} component="th" scope="row">{(page - 1) * itemsPerPage + index + 1}</TableCell>
-                        <TableCell padding={isMobile ? "none" : "normal"}>{item.maquina || item.machine}</TableCell>
+                        <TableCell padding={isMobile ? "none" : "normal"}>
+                          {/* Mostrar un indicador para máquinas con comentarios */}
+                          {item.comentario && item.comentario.trim() !== '' ? (
+                            <Tooltip title="Tiene novedad técnica">
+                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <span style={{ marginRight: '5px', color: '#9c27b0', fontWeight: 'bold' }}>⚠</span>
+                                {item.maquina || item.machine}
+                              </Box>
+                            </Tooltip>
+                          ) : (
+                            item.maquina || item.machine
+                          )}
+                        </TableCell>
                         <TableCell padding={isMobile ? "none" : "normal"}>{item.location}</TableCell>
                         {!isMobile && <TableCell>{item.asistente1 || '-'}</TableCell>}
                         {!isMobile && <TableCell>{item.asistente2 || '-'}</TableCell>}
