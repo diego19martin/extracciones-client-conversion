@@ -31,8 +31,6 @@ import { postConfig, postGenerateReport, postMaquinas, postGenerateDailyReport }
 import Swal from 'sweetalert2';
 import io from 'socket.io-client';
 import axios from 'axios';
-import { utils as XLSXUtils, write as XLSXWrite } from 'xlsx';
-import { saveAs } from 'file-saver';
 
 function valuetext(value) {
   return `${value}°C`;
@@ -67,6 +65,91 @@ export default function Range({ props }) {
   const [page, setPage] = useState(1);
   const [estadoFiltro, setEstadoFiltro] = useState('No iniciado'); // Por defecto mostrar las no iniciadas
   const [itemsPerPage] = useState(isMobile ? 10 : 20); // Menos elementos por página en móvil
+
+  // Función para mostrar los detalles de la máquina con SweetAlert2
+  const showMachineDetails = (machine) => {
+    const hasComment = machine.comentario && machine.comentario.trim() !== '';
+    
+    // Determinar el color del ícono basado en el estado
+    let iconColor = '';
+    if (machine.finalizado === 'Completa') {
+      iconColor = '#2e7d32'; // Verde
+    } else if (machine.finalizado === 'Pendiente') {
+      iconColor = '#ed6c02'; // Naranja
+    } else if (hasComment) {
+      iconColor = '#9c27b0'; // Púrpura para novedades
+    } else {
+      iconColor = '#d32f2f'; // Rojo para no iniciadas
+    }
+
+    // Crear el contenido HTML para el modal
+    let htmlContent = `
+      <div style="text-align: left; margin-bottom: 15px;">
+        <h3 style="margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">Información de Máquina</h3>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+          <div>
+            <p style="color: #666; margin: 0; font-size: 14px;">Máquina:</p>
+            <p style="margin: 0; font-weight: bold;">${machine.maquina || machine.machine}</p>
+          </div>
+          <div>
+            <p style="color: #666; margin: 0; font-size: 14px;">Ubicación:</p>
+            <p style="margin: 0; font-weight: bold;">${machine.location}</p>
+          </div>
+          <div>
+            <p style="color: #666; margin: 0; font-size: 14px;">Estado:</p>
+            <p style="margin: 0; font-weight: bold; color: ${iconColor};">
+              ${machine.finalizado || 'No iniciado'}
+            </p>
+          </div>
+    `;
+
+    // Agregar información de asistentes si existe
+    if (machine.asistente1) {
+      htmlContent += `
+        <div>
+          <p style="color: #666; margin: 0; font-size: 14px;">Asistente 1:</p>
+          <p style="margin: 0; font-weight: bold;">${machine.asistente1}</p>
+        </div>
+      `;
+    }
+    
+    if (machine.asistente2) {
+      htmlContent += `
+        <div>
+          <p style="color: #666; margin: 0; font-size: 14px;">Asistente 2:</p>
+          <p style="margin: 0; font-weight: bold;">${machine.asistente2}</p>
+        </div>
+      `;
+    }
+
+    // Cerrar la grid
+    htmlContent += `</div>`;
+
+    // Agregar la sección de novedad técnica si existe
+    if (hasComment) {
+      htmlContent += `
+        <h3 style="margin-top: 20px; margin-bottom: 10px; color: #9c27b0;">Novedad Técnica</h3>
+        <div style="background-color: rgba(209, 196, 233, 0.2); border: 1px solid rgba(209, 196, 233, 0.5); border-radius: 4px; padding: 10px;">
+          <p style="margin: 0;">${machine.comentario}</p>
+        </div>
+      `;
+    }
+    
+    // Cerrar el contenedor principal
+    htmlContent += `</div>`;
+
+    // Mostrar el SweetAlert2
+    Swal.fire({
+      title: `Máquina ${machine.maquina || machine.machine}`,
+      html: htmlContent,
+      icon: hasComment ? 'warning' : 'info',
+      iconColor: iconColor,
+      confirmButtonText: 'Cerrar',
+      confirmButtonColor: '#1976d2',
+      width: isMobile ? '90%' : '600px'
+    });
+  };
 
   // Calcular conteos para el resumen
   const conteos = useMemo(() => {
@@ -127,8 +210,8 @@ export default function Range({ props }) {
     [datosFiltrados, itemsPerPage]
   );
 
-  // Función para exportar datos a Excel
-  const exportToExcel = (data, fileName = 'listado_maquinas.xlsx') => {
+  // Función para exportar datos a CSV sin dependencias externas
+  const exportToCSV = (data, fileName = 'listado_maquinas.csv') => {
     // Verificar si hay datos para exportar
     if (!data || data.length === 0) {
       Swal.fire({
@@ -142,56 +225,67 @@ export default function Range({ props }) {
     try {
       setIsLoading(true);
       
-      // Preparar los datos para exportar
-      const exportData = data.map(item => ({
-        'Máquina': item.maquina || item.machine || '',
-        'Ubicación': item.location || '',
-        'Dinero': item.bill || '',
-        'Moneda': item.moneda || '',
-        'Estado': item.finalizado || 'No iniciado',
-        'Asistente 1': item.asistente1 || '',
-        'Asistente 2': item.asistente2 || '',
-        'Comentario': item.comentario || '',
-        'Zona': item.zona || ''
-      }));
-
-      // Crear una hoja de trabajo
-      const worksheet = XLSXUtils.json_to_sheet(exportData);
-      
-      // Ajustar ancho de columnas
-      const columnWidths = [
-        { wch: 15 },  // Máquina
-        { wch: 20 },  // Ubicación
-        { wch: 15 },  // Dinero
-        { wch: 10 },  // Moneda
-        { wch: 15 },  // Estado
-        { wch: 20 },  // Asistente 1
-        { wch: 20 },  // Asistente 2
-        { wch: 30 },  // Comentario
-        { wch: 10 }   // Zona
-      ];
-      
-      worksheet['!cols'] = columnWidths;
-
-      // Crear un libro de trabajo
-      const workbook = {
-        Sheets: { 'Listado Máquinas': worksheet },
-        SheetNames: ['Listado Máquinas']
+      // Función para escapar campos con comas o comillas
+      const escapeField = (field) => {
+        if (field === null || field === undefined) return '';
+        const stringField = String(field);
+        
+        // Si el campo contiene comas, comillas o saltos de línea, encerrarlo entre comillas
+        if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
+          // Reemplazar comillas dobles por dos comillas dobles (formato CSV)
+          return `"${stringField.replace(/"/g, '""')}"`;
+        }
+        return stringField;
       };
 
-      // Generar el archivo Excel
-      const excelBuffer = XLSXWrite(workbook, { 
-        bookType: 'xlsx', 
-        type: 'array' 
+      // Definir las cabeceras
+      const headers = [
+        'Máquina', 'Ubicación', 'Dinero', 'Moneda', 'Estado', 
+        'Asistente 1', 'Asistente 2', 'Comentario', 'Zona'
+      ];
+
+      // Crear la fila de cabeceras
+      let csvContent = headers.join(',') + '\r\n';
+
+      // Agregar cada fila de datos
+      data.forEach(item => {
+        const row = [
+          escapeField(item.maquina || item.machine || ''),
+          escapeField(item.location || ''),
+          escapeField(item.bill || ''),
+          escapeField(item.moneda || ''),
+          escapeField(item.finalizado || 'No iniciado'),
+          escapeField(item.asistente1 || ''),
+          escapeField(item.asistente2 || ''),
+          escapeField(item.comentario || ''),
+          escapeField(item.zona || '')
+        ];
+        csvContent += row.join(',') + '\r\n';
       });
 
-      // Convertir el buffer a un Blob
-      const blob = new Blob([excelBuffer], { 
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-      });
-
-      // Guardar el archivo
-      saveAs(blob, fileName);
+      // Crear el objeto Blob con el contenido CSV
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      
+      // Crear un enlace para descargar
+      const link = document.createElement('a');
+      
+      // Crear la URL del objeto Blob
+      const url = URL.createObjectURL(blob);
+      
+      // Configurar el enlace
+      link.setAttribute('href', url);
+      link.setAttribute('download', fileName);
+      link.style.visibility = 'hidden';
+      
+      // Agregar el enlace al DOM
+      document.body.appendChild(link);
+      
+      // Simular clic en el enlace para iniciar la descarga
+      link.click();
+      
+      // Limpiar
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
       Swal.fire({
         icon: 'success',
@@ -201,11 +295,11 @@ export default function Range({ props }) {
         timerProgressBar: true
       });
     } catch (error) {
-      console.error('Error al exportar a Excel:', error);
+      console.error('Error al exportar a CSV:', error);
       Swal.fire({
         icon: 'error',
         title: 'Error de exportación',
-        text: 'Ocurrió un problema al exportar los datos a Excel.'
+        text: 'Ocurrió un problema al exportar los datos.'
       });
     } finally {
       setIsLoading(false);
@@ -726,17 +820,30 @@ export default function Range({ props }) {
                 </Select>
               </FormControl>
               
-              {/* Nuevo botón de exportar */}
+              {/* Botón de exportar */}
               <Button
                 variant="outlined"
                 color="success"
-                onClick={() => exportToExcel(
+                onClick={() => exportToCSV(
                   // Si hay filtro aplicado, exportamos los datos filtrados
                   estadoFiltro === 'Todos' ? listadoFinal : datosFiltrados,
                   // Nombre del archivo basado en el filtro
-                  `maquinas_${estadoFiltro.toLowerCase().replace(' ', '_')}_${new Date().toISOString().split('T')[0]}.xlsx`
+                  `maquinas_${estadoFiltro.toLowerCase().replace(' ', '_')}_${new Date().toISOString().split('T')[0]}.csv`
                 )}
-                startIcon={<span role="img" aria-label="download">📊</span>}
+                startIcon={
+                  <Box
+                    component="span"
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#2e7d32',
+                      fontSize: '18px'
+                    }}
+                  >
+                    📊
+                  </Box>
+                }
                 disabled={isLoading || listadoFinal.length === 0}
                 sx={{ 
                   minWidth: isMobile ? '100%' : '140px',
@@ -789,38 +896,64 @@ export default function Range({ props }) {
                 </TableHead>
                 <TableBody>
                   {datosPaginados.length > 0 ? (
-                    datosPaginados.map((item, index) => (
-                      <TableRow
-                        key={index}
-                        sx={{ 
-                          '&:last-child td, &:last-child th': { border: 0 },
-                          backgroundColor: item.finalizado === 'Completa' ? 'rgba(134, 239, 172, 0.5)' : 
-                                          item.finalizado === 'Pendiente' ? 'rgba(252, 165, 165, 0.5)' : 
-                                          item.comentario && item.comentario.trim() !== '' ? 'rgba(209, 196, 233, 0.5)' : // Color lila para máquinas con comentarios
-                                          'transparent'
-                        }}
-                      >
-                        <TableCell padding={isMobile ? "none" : "normal"} component="th" scope="row">{(page - 1) * itemsPerPage + index + 1}</TableCell>
-                        <TableCell padding={isMobile ? "none" : "normal"}>
-                          {/* Mostrar un indicador para máquinas con comentarios */}
-                          {item.comentario && item.comentario.trim() !== '' ? (
-                            <Tooltip title="Tiene novedad técnica">
-                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                <span style={{ marginRight: '5px', color: '#9c27b0', fontWeight: 'bold' }}>⚠</span>
-                                {item.maquina || item.machine}
-                              </Box>
-                            </Tooltip>
-                          ) : (
-                            item.maquina || item.machine
-                          )}
-                        </TableCell>
-                        <TableCell padding={isMobile ? "none" : "normal"}>{item.location}</TableCell>
-                        {!isMobile && <TableCell>{item.asistente1 || '-'}</TableCell>}
-                        {!isMobile && <TableCell>{item.asistente2 || '-'}</TableCell>}
-                        <TableCell padding={isMobile ? "none" : "normal"}>{item.finalizado || 'No iniciado'}</TableCell>
-                        {!isMobile && <TableCell>{item.comentario || '-'}</TableCell>}
-                      </TableRow>
-                    ))
+                    datosPaginados.map((item, index) => {
+                      const rowId = item.id || index;
+                      const hasComment = item.comentario && item.comentario.trim() !== '';
+                      
+                      return (
+                        <TableRow
+                          key={rowId}
+                          onClick={() => isMobile && hasComment ? showMachineDetails(item) : null}
+                          sx={{ 
+                            '&:last-child td, &:last-child th': { border: 0 },
+                            backgroundColor: item.finalizado === 'Completa' ? 'rgba(134, 239, 172, 0.5)' : 
+                                            item.finalizado === 'Pendiente' ? 'rgba(252, 165, 165, 0.5)' : 
+                                            hasComment ? 'rgba(209, 196, 233, 0.5)' : 
+                                            'transparent',
+                            cursor: isMobile && hasComment ? 'pointer' : 'default'
+                          }}
+                        >
+                          <TableCell padding={isMobile ? "none" : "normal"} component="th" scope="row">
+                            {(page - 1) * itemsPerPage + index + 1}
+                          </TableCell>
+                          <TableCell padding={isMobile ? "none" : "normal"}>
+                            {/* Mostrar un indicador para máquinas con comentarios */}
+                            {hasComment ? (
+                              <Tooltip title={isMobile ? "Toca para ver novedad" : "Tiene novedad técnica"}>
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                  <Box
+                                    component="span"
+                                    sx={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      borderRadius: '50%',
+                                      bgcolor: '#9c27b0',
+                                      color: 'white',
+                                      width: 20,
+                                      height: 20,
+                                      fontSize: '14px',
+                                      fontWeight: 'bold',
+                                      mr: 1
+                                    }}
+                                  >
+                                    !
+                                  </Box>
+                                  {item.maquina || item.machine}
+                                </Box>
+                              </Tooltip>
+                            ) : (
+                              item.maquina || item.machine
+                            )}
+                          </TableCell>
+                          <TableCell padding={isMobile ? "none" : "normal"}>{item.location}</TableCell>
+                          {!isMobile && <TableCell>{item.asistente1 || '-'}</TableCell>}
+                          {!isMobile && <TableCell>{item.asistente2 || '-'}</TableCell>}
+                          <TableCell padding={isMobile ? "none" : "normal"}>{item.finalizado || 'No iniciado'}</TableCell>
+                          {!isMobile && <TableCell>{item.comentario || '-'}</TableCell>}
+                        </TableRow>
+                      );
+                    })
                   ) : (
                     <TableRow>
                       <TableCell colSpan={isMobile ? 4 : 7} align="center">No hay máquinas que coincidan con el filtro seleccionado</TableCell>
