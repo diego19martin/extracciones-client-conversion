@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
-  Box, 
-  Slider, 
-  Button, 
-  Card, 
-  CardContent, 
-  Typography, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow, 
+import {
+  Box,
+  Slider,
+  Button,
+  Card,
+  CardContent,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Paper,
   Grid,
   Pagination,
@@ -31,6 +31,8 @@ import { postConfig, postGenerateReport, postMaquinas, postGenerateDailyReport }
 import Swal from 'sweetalert2';
 import io from 'socket.io-client';
 import axios from 'axios';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 function valuetext(value) {
   return `${value}°C`;
@@ -40,13 +42,13 @@ function valuetext(value) {
 const API_URL = process.env.NODE_ENV === 'production'
   ? process.env.REACT_APP_HOST_HEROKU // Heroku en producción
   : process.env.NODE_ENV === 'vercel'
-  ? process.env.REACT_APP_HOST_VERCEL // Vercel en producción
-  : process.env.REACT_APP_HOST_LOCAL; // Localhost en desarrollo
+    ? process.env.REACT_APP_HOST_VERCEL // Vercel en producción
+    : process.env.REACT_APP_HOST_LOCAL; // Localhost en desarrollo
 
 export default function Range({ props }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
+
   // Estados originales
   const [valuePesos, setValuePesos] = useState(0);
   const [valueDolares, setValueDolares] = useState(1);
@@ -69,7 +71,7 @@ export default function Range({ props }) {
   // Función para mostrar los detalles de la máquina con SweetAlert2
   const showMachineDetails = (machine) => {
     const hasComment = machine.comentario && machine.comentario.trim() !== '';
-    
+
     // Determinar el color del ícono basado en el estado
     let iconColor = '';
     if (machine.finalizado === 'Completa') {
@@ -113,7 +115,7 @@ export default function Range({ props }) {
         </div>
       `;
     }
-    
+
     if (machine.asistente2) {
       htmlContent += `
         <div>
@@ -135,7 +137,7 @@ export default function Range({ props }) {
         </div>
       `;
     }
-    
+
     // Cerrar el contenedor principal
     htmlContent += `</div>`;
 
@@ -153,21 +155,21 @@ export default function Range({ props }) {
 
   // Calcular conteos para el resumen
   const conteos = useMemo(() => {
-    if (!listadoFinal || listadoFinal.length === 0) return { 
-      completadas: 0, 
-      pendientes: 0, 
-      noIniciadas: 0, 
+    if (!listadoFinal || listadoFinal.length === 0) return {
+      completadas: 0,
+      pendientes: 0,
+      noIniciadas: 0,
       total: 0,
       conNovedades: 0 // Nuevo contador para máquinas con comentarios
     };
-    
+
     const completadas = listadoFinal.filter(item => item.finalizado === 'Completa').length;
     const pendientes = listadoFinal.filter(item => item.finalizado === 'Pendiente').length;
     const noIniciadas = listadoFinal.filter(item => !item.finalizado || item.finalizado === 'No iniciado').length;
-    
+
     // Contar máquinas con comentarios
     const conNovedades = listadoFinal.filter(item => item.comentario && item.comentario.trim() !== '').length;
-    
+
     return {
       completadas,
       pendientes,
@@ -180,9 +182,9 @@ export default function Range({ props }) {
   // Filtrar y paginar los datos
   const datosFiltrados = useMemo(() => {
     if (!listadoFinal || listadoFinal.length === 0) return [];
-    
+
     let filtered = [...listadoFinal];
-    
+
     // Aplicar filtro por estado
     if (estadoFiltro !== 'Todos') {
       if (estadoFiltro === 'No iniciado') {
@@ -194,7 +196,7 @@ export default function Range({ props }) {
         filtered = filtered.filter(item => item.finalizado === estadoFiltro);
       }
     }
-    
+
     return filtered;
   }, [listadoFinal, estadoFiltro]);
 
@@ -205,13 +207,13 @@ export default function Range({ props }) {
   }, [datosFiltrados, page, itemsPerPage]);
 
   // Total de páginas para la paginación
-  const totalPages = useMemo(() => 
-    Math.max(1, Math.ceil(datosFiltrados.length / itemsPerPage)), 
+  const totalPages = useMemo(() =>
+    Math.max(1, Math.ceil(datosFiltrados.length / itemsPerPage)),
     [datosFiltrados, itemsPerPage]
   );
 
-  // Función para exportar datos a CSV sin dependencias externas
-  const exportToCSV = (data, fileName = 'listado_maquinas.csv') => {
+  // Función para exportar a Excel con título correcto según el filtro seleccionado
+  const exportToExcel = (data, fileName = 'listado_maquinas.xlsx') => {
     // Verificar si hay datos para exportar
     if (!data || data.length === 0) {
       Swal.fire({
@@ -224,87 +226,137 @@ export default function Range({ props }) {
 
     try {
       setIsLoading(true);
-      
-      // Función para escapar campos con comas o comillas
-      const escapeField = (field) => {
-        if (field === null || field === undefined) return '';
-        const stringField = String(field);
-        
-        // Si el campo contiene comas, comillas o saltos de línea, encerrarlo entre comillas
-        if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
-          // Reemplazar comillas dobles por dos comillas dobles (formato CSV)
-          return `"${stringField.replace(/"/g, '""')}"`;
-        }
-        return stringField;
+
+      // Crear un nuevo workbook
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Listado de Máquinas');
+
+      // Determinar el título correcto basado en el filtro seleccionado
+      let title = '';
+
+      // Si el filtro es "Con novedad", usar "Comentario" como título
+      if (estadoFiltro === 'Con novedad') {
+        title = 'Comentario';
+      }
+      // Para otros filtros, usar el nombre del filtro directamente
+      else {
+        title = estadoFiltro;
+      }
+
+      console.log('Filtro seleccionado:', estadoFiltro);
+      console.log('Título a usar:', title);
+
+      // Agregar título principal
+      worksheet.mergeCells('A1:G1');
+      const titleCell = worksheet.getCell('A1');
+      titleCell.value = title;
+      titleCell.font = { size: 16, bold: true };
+      titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+      titleCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'E2EFDA' } // Color verde claro para el encabezado
+      };
+      titleCell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
       };
 
-      // Definir las cabeceras
-      const headers = [
-        'Máquina', 'Ubicación', 'Dinero', 'Moneda', 'Estado', 
-        'Asistente 1', 'Asistente 2', 'Comentario', 'Zona'
+      // Definir columnas con títulos correctos
+      const columns = [
+        { header: '#', key: 'index', width: 5 },
+        { header: 'Máquina', key: 'maquina', width: 15 },
+        { header: 'Location', key: 'location', width: 12 },
+        { header: 'Asistente 1', key: 'asistente1', width: 20 },
+        { header: 'Asistente 2', key: 'asistente2', width: 20 },
+        { header: 'Estado', key: 'estado', width: 15 },
+        { header: 'Comentario', key: 'comentario', width: 35 }
       ];
 
-      // Crear la fila de cabeceras
-      let csvContent = headers.join(',') + '\r\n';
+      // Asignar columnas explícitamente
+      worksheet.columns = columns;
 
-      // Agregar cada fila de datos
-      data.forEach(item => {
-        const row = [
-          escapeField(item.maquina || item.machine || ''),
-          escapeField(item.location || ''),
-          escapeField(item.bill || ''),
-          escapeField(item.moneda || ''),
-          escapeField(item.finalizado || 'No iniciado'),
-          escapeField(item.asistente1 || ''),
-          escapeField(item.asistente2 || ''),
-          escapeField(item.comentario || ''),
-          escapeField(item.zona || '')
+      // Agregar fila con los encabezados de columna explícitamente
+      const headers = columns.map(col => col.header);
+      worksheet.addRow(headers);
+
+      // Estilizar la fila de encabezado para que sea clara y visible
+      const headerRow = worksheet.getRow(2); // La fila 2 contiene los encabezados de columna
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+        // Color de fondo para los encabezados de columna
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'F2F2F2' } // Color gris claro para los encabezados de columna
+        };
+      });
+
+      // Agregar filas con datos pero sin aplicar colores de fondo
+      data.forEach((item, index) => {
+        const rowData = [
+          index + 1,
+          item.maquina || item.machine || '',
+          item.location || '',
+          item.asistente1 || '',
+          item.asistente2 || '',
+          item.finalizado || 'No iniciado',
+          item.comentario || ''
         ];
-        csvContent += row.join(',') + '\r\n';
+
+        const row = worksheet.addRow(rowData);
+
+        // Agregar bordes a cada celda pero sin color de fondo
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+          cell.alignment = { vertical: 'middle' };
+        });
       });
 
-      // Crear el objeto Blob con el contenido CSV
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      
-      // Crear un enlace para descargar
-      const link = document.createElement('a');
-      
-      // Crear la URL del objeto Blob
-      const url = URL.createObjectURL(blob);
-      
-      // Configurar el enlace
-      link.setAttribute('href', url);
-      link.setAttribute('download', fileName);
-      link.style.visibility = 'hidden';
-      
-      // Agregar el enlace al DOM
-      document.body.appendChild(link);
-      
-      // Simular clic en el enlace para iniciar la descarga
-      link.click();
-      
-      // Limpiar
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      // Ajustar el nombre del archivo basado en el filtro
+      const exportFileName = `${title.toLowerCase().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
 
-      Swal.fire({
-        icon: 'success',
-        title: 'Exportación completada',
-        text: `El archivo ${fileName} se ha descargado correctamente.`,
-        timer: 2000,
-        timerProgressBar: true
+      // Generar el archivo Excel
+      workbook.xlsx.writeBuffer().then(buffer => {
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        saveAs(blob, exportFileName);
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Exportación completada',
+          text: `El archivo ${exportFileName} se ha descargado correctamente.`,
+          timer: 2000,
+          timerProgressBar: true
+        });
+
+        setIsLoading(false);
       });
+
     } catch (error) {
-      console.error('Error al exportar a CSV:', error);
+      console.error('Error al exportar a Excel:', error);
       Swal.fire({
         icon: 'error',
         title: 'Error de exportación',
         text: 'Ocurrió un problema al exportar los datos.'
       });
-    } finally {
       setIsLoading(false);
     }
   };
+
 
   // Memoizamos las funciones para evitar recrearlas en cada render
   const updateSummary = useCallback((pesosValue, dolaresValue, data) => {
@@ -317,36 +369,36 @@ export default function Range({ props }) {
 
     // Calcular dinero en stacker: máquinas con bill menor al límite
     data.forEach(machine => {
-        const bill = parseFloat(machine.bill);
-        if (machine.moneda === 'pesos') {
-            if (bill < pesosValue) {
-                // Sumar el valor de las máquinas que no cumplen el límite de pesos
-                dineroEnStackerPesos += bill;
-            }
-        } else if (machine.moneda === 'dolares') {
-            if (bill < dolaresValue) {
-                // Sumar el valor de las máquinas que no cumplen el límite de dólares
-                dineroEnStackerDolares += bill;
-            }
+      const bill = parseFloat(machine.bill);
+      if (machine.moneda === 'pesos') {
+        if (bill < pesosValue) {
+          // Sumar el valor de las máquinas que no cumplen el límite de pesos
+          dineroEnStackerPesos += bill;
         }
+      } else if (machine.moneda === 'dolares') {
+        if (bill < dolaresValue) {
+          // Sumar el valor de las máquinas que no cumplen el límite de dólares
+          dineroEnStackerDolares += bill;
+        }
+      }
     });
 
     // Filtrar las máquinas que cumplen con los límites seleccionados
-    const listadoFiltrado = data.filter(machine => 
-        (machine.moneda === 'pesos' && parseFloat(machine.bill) >= pesosValue) || 
-        (machine.moneda === 'dolares' && parseFloat(machine.bill) >= dolaresValue)
+    const listadoFiltrado = data.filter(machine =>
+      (machine.moneda === 'pesos' && parseFloat(machine.bill) >= pesosValue) ||
+      (machine.moneda === 'dolares' && parseFloat(machine.bill) >= dolaresValue)
     );
 
     // Ahora que tenemos el listado filtrado, calculemos el resumen
     listadoFiltrado.forEach(machine => {
-        const bill = parseFloat(machine.bill);
-        if (machine.moneda === 'pesos') {
-            sumTotalPesos += bill;
-            extraerPesos++;
-        } else if (machine.moneda === 'dolares') {
-            sumTotalDolares += bill;
-            extraerDolares++;
-        }
+      const bill = parseFloat(machine.bill);
+      if (machine.moneda === 'pesos') {
+        sumTotalPesos += bill;
+        extraerPesos++;
+      } else if (machine.moneda === 'dolares') {
+        sumTotalDolares += bill;
+        extraerDolares++;
+      }
     });
 
     // Actualizar el estado de las cantidades y totales
@@ -361,12 +413,12 @@ export default function Range({ props }) {
 
   const handleTableUpdate = useCallback((updatedTable) => {
     console.log('Datos recibidos:', updatedTable);
-    
+
     // Actualizar directamente el listado filtrado
     if (updatedTable && updatedTable.length > 0) {
       setListadoFinal(updatedTable);
     }
-  
+
     // Aquí llamamos directamente a updateSummary para asegurarnos de que se use la tabla actualizada
     updateSummary(valuePesos, valueDolares, resumen);
   }, [valuePesos, valueDolares, resumen, updateSummary]);
@@ -378,7 +430,7 @@ export default function Range({ props }) {
       const response = await axios.get(`${API_URL}/api/getListadoFiltrado`);
       if (response.data && response.data.length > 0) {
         setListadoFinal(response.data);
-        
+
         // También cargar la última configuración
         const configResponse = await axios.get(`${API_URL}/api/getConfig`);
         if (configResponse.data) {
@@ -407,7 +459,7 @@ export default function Range({ props }) {
     newSocket.on('connect_error', (error) => {
       console.error('Error de conexión al socket:', error);
     });
-    
+
     newSocket.on('tableUpdate', handleTableUpdate);
 
     return () => {
@@ -417,13 +469,13 @@ export default function Range({ props }) {
   }, [loadFilteredData, handleTableUpdate]);
 
   const handleChangePesos = (event, newValue) => {
-      setValuePesos(newValue);
-      updateSummary(newValue, valueDolares, resumen);  // Solo actualizar el resumen aquí
+    setValuePesos(newValue);
+    updateSummary(newValue, valueDolares, resumen);  // Solo actualizar el resumen aquí
   };
 
   const handleChangeDolares = (event, newValue) => {
-      setValueDolares(newValue);
-      updateSummary(valuePesos, newValue, resumen);  // Solo actualizar el resumen aquí
+    setValueDolares(newValue);
+    updateSummary(valuePesos, newValue, resumen);  // Solo actualizar el resumen aquí
   };
 
   const handleClick = async () => {
@@ -468,68 +520,68 @@ export default function Range({ props }) {
   const handleGenerateReport = async () => {
     setIsLoading(true); // Iniciar el estado de cargando
     try {
-        // Realiza una petición al backend para generar y enviar el reporte
-        const response = await postGenerateReport();
-        console.log('generateReport response:', response);
-        
-        const { message, status } = response.data || { message: 'Reporte técnica generado correctamente', status: 'success' };
-        
-        Swal.fire({
-            icon: status || 'success',
-            title: status === 'warning' ? 'Aviso' : status === 'error' ? 'Error' : 'Éxito',
-            text: message || 'El reporte técnica se ha generado y enviado correctamente.',
-        });
+      // Realiza una petición al backend para generar y enviar el reporte
+      const response = await postGenerateReport();
+      console.log('generateReport response:', response);
+
+      const { message, status } = response.data || { message: 'Reporte técnica generado correctamente', status: 'success' };
+
+      Swal.fire({
+        icon: status || 'success',
+        title: status === 'warning' ? 'Aviso' : status === 'error' ? 'Error' : 'Éxito',
+        text: message || 'El reporte técnica se ha generado y enviado correctamente.',
+      });
 
     } catch (error) {
-        console.error('Error al generar reporte:', error);
-        let errorMessage = 'Hubo un problema al generar el reporte técnica.';
-        
-        // Verificar si hay un mensaje de error específico en la respuesta
-        if (error.response && error.response.data && error.response.data.message) {
-            errorMessage = error.response.data.message;
-        }
-        
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: errorMessage,
-        });
+      console.error('Error al generar reporte:', error);
+      let errorMessage = 'Hubo un problema al generar el reporte técnica.';
+
+      // Verificar si hay un mensaje de error específico en la respuesta
+      if (error.response && error.response.data && error.response.data.message) {
+        errorMessage = error.response.data.message;
+      }
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: errorMessage,
+      });
     } finally {
-        setIsLoading(false); // Asegurar que el botón se habilite siempre
+      setIsLoading(false); // Asegurar que el botón se habilite siempre
     }
   };
 
   const handleGenerateDailyReport = async () => {
     setIsLoading(true); // Iniciar el estado de cargando
     try {
-        // Realiza una petición al backend para generar y enviar el reporte diario
-        const response = await postGenerateDailyReport();
-        console.log('generateDailyReport response:', response);
-        
-        const { message, status } = response.data || { message: 'El resumen de extracciones se ha generado y enviado correctamente', status: 'success' };
-        
-        Swal.fire({
-            icon: status || 'success',
-            title: status === 'warning' ? 'Aviso' : status === 'error' ? 'Error' : 'Éxito',
-            text: message || 'El resumen de extracciones se ha generado y enviado correctamente.',
-        });
+      // Realiza una petición al backend para generar y enviar el reporte diario
+      const response = await postGenerateDailyReport();
+      console.log('generateDailyReport response:', response);
+
+      const { message, status } = response.data || { message: 'El resumen de extracciones se ha generado y enviado correctamente', status: 'success' };
+
+      Swal.fire({
+        icon: status || 'success',
+        title: status === 'warning' ? 'Aviso' : status === 'error' ? 'Error' : 'Éxito',
+        text: message || 'El resumen de extracciones se ha generado y enviado correctamente.',
+      });
 
     } catch (error) {
-        console.error('Error al generar reporte diario:', error);
-        let errorMessage = 'Hubo un problema al generar el resumen de extracciones.';
-        
-        // Verificar si hay un mensaje de error específico en la respuesta
-        if (error.response && error.response.data && error.response.data.message) {
-            errorMessage = error.response.data.message;
-        }
-        
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: errorMessage,
-        });
+      console.error('Error al generar reporte diario:', error);
+      let errorMessage = 'Hubo un problema al generar el resumen de extracciones.';
+
+      // Verificar si hay un mensaje de error específico en la respuesta
+      if (error.response && error.response.data && error.response.data.message) {
+        errorMessage = error.response.data.message;
+      }
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: errorMessage,
+      });
     } finally {
-        setIsLoading(false); // Asegurar que el botón se habilite siempre
+      setIsLoading(false); // Asegurar que el botón se habilite siempre
     }
   };
 
@@ -586,13 +638,13 @@ export default function Range({ props }) {
         </Box>
 
         {/* Panel de información para pesos - Adaptable para móvil */}
-        <Box 
-          sx={{ 
-            display: 'flex', 
+        <Box
+          sx={{
+            display: 'flex',
             flexDirection: isMobile ? 'column' : 'row',
-            justifyContent: 'space-between', 
+            justifyContent: 'space-between',
             my: 2,
-            gap: 2 
+            gap: 2
           }}
         >
           <Box sx={{ textAlign: 'center', flex: 1, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
@@ -603,6 +655,7 @@ export default function Range({ props }) {
             <Typography variant="body2" color="text.secondary">Total a extraer</Typography>
             <Typography variant="h6">${total.toLocaleString('en-US')}</Typography>
           </Box>
+          <Box sx={{ textAlign: 'center', flex: 1, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}></Box>
           <Box sx={{ textAlign: 'center', flex: 1, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
             <Typography variant="body2" color="text.secondary">Dinero en stacker</Typography>
             <Typography variant="h6">${dineroEnStacker.toLocaleString('en-US')}</Typography>
@@ -616,13 +669,13 @@ export default function Range({ props }) {
         </Box>
 
         {/* Panel de información para dólares - Adaptable para móvil */}
-        <Box 
-          sx={{ 
-            display: 'flex', 
+        <Box
+          sx={{
+            display: 'flex',
             flexDirection: isMobile ? 'column' : 'row',
-            justifyContent: 'space-between', 
+            justifyContent: 'space-between',
             my: 2,
-            gap: 2 
+            gap: 2
           }}
         >
           <Box sx={{ textAlign: 'center', flex: 1, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
@@ -641,10 +694,10 @@ export default function Range({ props }) {
 
         {/* Botón de confirmar configuración */}
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
-          <Button 
-            variant='contained' 
-            color='primary' 
-            onClick={handleClick} 
+          <Button
+            variant='contained'
+            color='primary'
+            onClick={handleClick}
             disabled={isLoading}
             fullWidth={isMobile}
             size={isMobile ? "large" : "medium"}
@@ -655,13 +708,13 @@ export default function Range({ props }) {
         </Box>
 
         {/* Botones de reporte - Adaptable para móvil */}
-        <Box 
-          sx={{ 
-            display: 'flex', 
+        <Box
+          sx={{
+            display: 'flex',
             flexDirection: isMobile ? 'column' : 'row',
-            justifyContent: 'center', 
+            justifyContent: 'center',
             my: 2,
-            gap: 2 
+            gap: 2
           }}
         >
           <Button
@@ -675,7 +728,7 @@ export default function Range({ props }) {
           >
             {isLoading ? 'Generando...' : 'ENVIAR REPORTE TÉCNICA'}
           </Button>
-          
+
           <Button
             variant='contained'
             color='primary'
@@ -698,28 +751,28 @@ export default function Range({ props }) {
 
         {/* Cuadro resumen - Con contenedor centrado para escritorio */}
         {!loadingData && (
-          <Box sx={{ 
+          <Box sx={{
             mb: 3,
             display: 'flex',
             justifyContent: 'center'
           }}>
-            <Box sx={{ 
-              width: '100%', 
+            <Box sx={{
+              width: '100%',
               maxWidth: isMobile ? '100%' : '600px' // Ancho limitado en escritorio
             }}>
               <Typography variant="subtitle1" gutterBottom fontWeight="bold" align="center">
                 Resumen de Estado
               </Typography>
-              <Box sx={{ 
-                display: 'flex', 
+              <Box sx={{
+                display: 'flex',
                 flexDirection: 'column',
                 gap: 1
               }}>
                 {/* Completadas - Barra verde */}
-                <Box sx={{ 
-                  bgcolor: '#2e7d32', 
-                  color: 'white', 
-                  p: 1.5, 
+                <Box sx={{
+                  bgcolor: '#2e7d32',
+                  color: 'white',
+                  p: 1.5,
                   borderRadius: 1,
                   display: 'flex',
                   justifyContent: 'space-between'
@@ -727,12 +780,12 @@ export default function Range({ props }) {
                   <Typography variant="body1">Completadas:</Typography>
                   <Typography variant="body1" fontWeight="bold">{conteos.completadas}</Typography>
                 </Box>
-                
+
                 {/* Pendientes - Barra naranja */}
-                <Box sx={{ 
-                  bgcolor: '#ed6c02', 
-                  color: 'white', 
-                  p: 1.5, 
+                <Box sx={{
+                  bgcolor: '#ed6c02',
+                  color: 'white',
+                  p: 1.5,
                   borderRadius: 1,
                   display: 'flex',
                   justifyContent: 'space-between'
@@ -740,12 +793,12 @@ export default function Range({ props }) {
                   <Typography variant="body1">Pendientes:</Typography>
                   <Typography variant="body1" fontWeight="bold">{conteos.pendientes}</Typography>
                 </Box>
-                
+
                 {/* No iniciadas - Barra roja */}
-                <Box sx={{ 
-                  bgcolor: '#d32f2f', 
-                  color: 'white', 
-                  p: 1.5, 
+                <Box sx={{
+                  bgcolor: '#d32f2f',
+                  color: 'white',
+                  p: 1.5,
                   borderRadius: 1,
                   display: 'flex',
                   justifyContent: 'space-between'
@@ -753,12 +806,12 @@ export default function Range({ props }) {
                   <Typography variant="body1">No iniciadas:</Typography>
                   <Typography variant="body1" fontWeight="bold">{conteos.noIniciadas}</Typography>
                 </Box>
-                
+
                 {/* Novedades técnicas - Nueva barra púrpura */}
-                <Box sx={{ 
-                  bgcolor: '#9c27b0', 
-                  color: 'white', 
-                  p: 1.5, 
+                <Box sx={{
+                  bgcolor: '#9c27b0',
+                  color: 'white',
+                  p: 1.5,
                   borderRadius: 1,
                   display: 'flex',
                   justifyContent: 'space-between'
@@ -766,12 +819,12 @@ export default function Range({ props }) {
                   <Typography variant="body1">Novedades técnicas:</Typography>
                   <Typography variant="body1" fontWeight="bold">{conteos.conNovedades}</Typography>
                 </Box>
-                
+
                 {/* Total - Barra azul */}
-                <Box sx={{ 
-                  bgcolor: '#1976d2', 
-                  color: 'white', 
-                  p: 1.5, 
+                <Box sx={{
+                  bgcolor: '#1976d2',
+                  color: 'white',
+                  p: 1.5,
                   borderRadius: 1,
                   display: 'flex',
                   justifyContent: 'space-between'
@@ -786,18 +839,18 @@ export default function Range({ props }) {
 
         {/* Filtros, controles y botón de exportación - Optimizado para móvil */}
         {!loadingData && (
-          <Box sx={{ 
-            display: 'flex', 
+          <Box sx={{
+            display: 'flex',
             flexDirection: isMobile ? 'column' : 'row',
-            justifyContent: 'space-between', 
-            alignItems: isMobile ? 'stretch' : 'center', 
+            justifyContent: 'space-between',
+            alignItems: isMobile ? 'stretch' : 'center',
             mb: 2,
             gap: 2,
             maxWidth: isMobile ? '100%' : '900px',
             mx: 'auto'
           }}>
-            <Box sx={{ 
-              display: 'flex', 
+            <Box sx={{
+              display: 'flex',
               flexDirection: isMobile ? 'column' : 'row',
               gap: 2,
               width: isMobile ? '100%' : 'auto'
@@ -819,16 +872,16 @@ export default function Range({ props }) {
                   <MenuItem value="Con novedad">Con novedades técnicas</MenuItem>
                 </Select>
               </FormControl>
-              
-              {/* Botón de exportar */}
+
+              {/* Botón de exportar a Excel mejorado */}
               <Button
                 variant="outlined"
                 color="success"
-                onClick={() => exportToCSV(
+                onClick={() => exportToExcel(
                   // Si hay filtro aplicado, exportamos los datos filtrados
                   estadoFiltro === 'Todos' ? listadoFinal : datosFiltrados,
                   // Nombre del archivo basado en el filtro
-                  `maquinas_${estadoFiltro.toLowerCase().replace(' ', '_')}_${new Date().toISOString().split('T')[0]}.csv`
+                  `maquinas_${estadoFiltro.toLowerCase().replace(' ', '_')}_${new Date().toISOString().split('T')[0]}.xlsx`
                 )}
                 startIcon={
                   <Box
@@ -845,7 +898,7 @@ export default function Range({ props }) {
                   </Box>
                 }
                 disabled={isLoading || listadoFinal.length === 0}
-                sx={{ 
+                sx={{
                   minWidth: isMobile ? '100%' : '140px',
                   whiteSpace: 'nowrap',
                   fontWeight: 'bold'
@@ -854,7 +907,7 @@ export default function Range({ props }) {
                 Exportar Excel
               </Button>
             </Box>
-            
+
             {!isMobile && (
               <Typography variant="body2" color="text.secondary">
                 Mostrando {datosFiltrados.length > 0 ? (page - 1) * itemsPerPage + 1 : 0} - {Math.min(page * itemsPerPage, datosFiltrados.length)} de {datosFiltrados.length} máquinas
@@ -867,19 +920,19 @@ export default function Range({ props }) {
         {loadingData ? (
           <Typography align="center" sx={{ py: 4 }}>Cargando datos...</Typography>
         ) : (
-          <Box sx={{ 
+          <Box sx={{
             maxWidth: isMobile ? '100%' : '900px',
             mx: 'auto'
           }}>
-            <TableContainer 
-              component={Paper} 
-              sx={{ 
+            <TableContainer
+              component={Paper}
+              sx={{
                 maxHeight: isMobile ? 'calc(100vh - 600px)' : 'auto',
-                overflowX: 'auto' 
+                overflowX: 'auto'
               }}
             >
-              <Table 
-                sx={{ minWidth: isMobile ? 400 : 650 }} 
+              <Table
+                sx={{ minWidth: isMobile ? 400 : 650 }}
                 aria-label="tabla de máquinas"
                 size={isMobile ? "small" : "medium"}
               >
@@ -899,17 +952,17 @@ export default function Range({ props }) {
                     datosPaginados.map((item, index) => {
                       const rowId = item.id || index;
                       const hasComment = item.comentario && item.comentario.trim() !== '';
-                      
+
                       return (
                         <TableRow
                           key={rowId}
                           onClick={() => isMobile && hasComment ? showMachineDetails(item) : null}
-                          sx={{ 
+                          sx={{
                             '&:last-child td, &:last-child th': { border: 0 },
-                            backgroundColor: item.finalizado === 'Completa' ? 'rgba(134, 239, 172, 0.5)' : 
-                                            item.finalizado === 'Pendiente' ? 'rgba(252, 165, 165, 0.5)' : 
-                                            hasComment ? 'rgba(209, 196, 233, 0.5)' : 
-                                            'transparent',
+                            backgroundColor: item.finalizado === 'Completa' ? 'rgba(134, 239, 172, 0.5)' :
+                              item.finalizado === 'Pendiente' ? 'rgba(252, 165, 165, 0.5)' :
+                                hasComment ? 'rgba(209, 196, 233, 0.5)' :
+                                  'transparent',
                             cursor: isMobile && hasComment ? 'pointer' : 'default'
                           }}
                         >
@@ -972,12 +1025,12 @@ export default function Range({ props }) {
 
             {/* Paginación */}
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-              <Pagination 
-                count={totalPages} 
-                page={page} 
-                onChange={handlePageChange} 
-                color="primary" 
-                showFirstButton 
+              <Pagination
+                count={totalPages}
+                page={page}
+                onChange={handlePageChange}
+                color="primary"
+                showFirstButton
                 showLastButton
                 size={isMobile ? "small" : "medium"}
               />
