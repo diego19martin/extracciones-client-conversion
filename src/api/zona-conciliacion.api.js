@@ -1,24 +1,19 @@
 import axios from "axios";
 
 // Función para determinar la URL base de manera dinámica
+// Función para determinar la URL base de manera dinámica usando variables de entorno
 const determineBaseUrl = () => {
-  // Verificar entorno basado en variables de entorno o ubicación actual
+  // Verificar si estamos en entorno de producción
   const isProduction = process.env.NODE_ENV === 'production';
-  const hostname = window.location.hostname;
   
-  // Configurar URLs según el entorno
+  // Usar directamente las variables de entorno
   if (isProduction) {
-    if (hostname.includes('heroku')) {
-      return 'https://extraccione-server.herokuapp.com';
-    } else if (hostname.includes('vercel')) {
-      return 'https://extracciones-client-conversion.vercel.app';
-    }
-    // Default production URL
-    return 'https://extraccione-server.herokuapp.com';
+    // En Vercel usamos la URL de Heroku para el backend
+    return process.env.REACT_APP_HOST_HEROKU;
   }
   
-  // En desarrollo local, usar localhost
-  return 'http://localhost:4000';
+  // En desarrollo local
+  return process.env.REACT_APP_HOST_LOCAL;
 };
 
 // Crear la URL base

@@ -35,29 +35,19 @@ const StyledTableRow = styled(TableRow)(({ theme, status }) => ({
 }));
 
 // Función para determinar la URL base de manera dinámica
+// Función para determinar la URL base de manera dinámica usando variables de entorno
 const determineBaseUrl = () => {
   // Verificar si estamos en entorno de producción
   const isProduction = process.env.NODE_ENV === 'production';
   
-  // Obtener el hostname actual
-  const currentHostname = window.location.hostname;
-  
-  // Opción 1: Estamos en producción (Heroku, Vercel, etc.)
+  // Usar directamente las variables de entorno
   if (isProduction) {
-    // Si estamos usando el mismo dominio para frontend y backend (con diferentes puertos/paths)
-    // Usar la URL relativa al origen actual
-    if (currentHostname.includes('extracciones-client-conversion')) {
-      return 'https://extraccione-server.herokuapp.com';
-    } else if (currentHostname.includes('vercel.app')) {
-      return 'https://extracciones-client-conversion.vercel.app';
-    }
-    
-    // Si no coincide con ninguno conocido, usar la API de Heroku por defecto
-    return 'https://extraccione-server.herokuapp.com';
+    // En Vercel usamos la URL de Heroku para el backend
+    return process.env.REACT_APP_HOST_HEROKU;
   }
   
-  // Opción 2: Estamos en desarrollo local
-  return 'http://localhost:4000';
+  // En desarrollo local
+  return process.env.REACT_APP_HOST_LOCAL;
 };
 
 // Determinar la URL base al iniciar
