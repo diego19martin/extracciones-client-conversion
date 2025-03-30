@@ -108,7 +108,6 @@ export default function GestionEmpleados() {
 
   return (
     <>
-      <Header />
       <div className='container'>
         <Link to="/conversion">
           <Button variant="contained" color="primary" style={{ margin: '20px' }}>

@@ -38,12 +38,36 @@ function valuetext(value) {
   return `${value}°C`;
 }
 
-// Selección dinámica del endpoint
-const API_URL = process.env.NODE_ENV === 'production'
-  ? process.env.REACT_APP_HOST_HEROKU // Heroku en producción
-  : process.env.NODE_ENV === 'vercel'
-    ? process.env.REACT_APP_HOST_VERCEL // Vercel en producción
-    : process.env.REACT_APP_HOST_LOCAL; // Localhost en desarrollo
+// Función para determinar la URL base de manera dinámica
+const determineBaseUrl = () => {
+  // Verificar si estamos en entorno de producción
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // Obtener el hostname actual
+  const currentHostname = window.location.hostname;
+  
+  // Opción 1: Estamos en producción (Heroku, Vercel, etc.)
+  if (isProduction) {
+    // Si estamos usando el mismo dominio para frontend y backend (con diferentes puertos/paths)
+    // Usar la URL relativa al origen actual
+    if (currentHostname.includes('extracciones-client-conversion')) {
+      return 'https://extraccione-server.herokuapp.com';
+    } else if (currentHostname.includes('vercel.app')) {
+      return 'https://extracciones-client-conversion.vercel.app';
+    }
+    
+    // Si no coincide con ninguno conocido, usar la API de Heroku por defecto
+    return 'https://extraccione-server.herokuapp.com';
+  }
+  
+  // Opción 2: Estamos en desarrollo local
+  return 'http://localhost:4000';
+};
+
+// Determinar la URL base al iniciar
+const API_URL = determineBaseUrl();
+
+console.log('Inicializando API con URL:', API_URL);
 
 export default function Range({ props }) {
   const theme = useTheme();

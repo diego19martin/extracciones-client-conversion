@@ -239,5 +239,69 @@ table {
   background-color: #fb7474; /* Rojo */
 }
 
+/* 
+  Instrucciones: Añade estos estilos al final de tu archivo index.css 
+  para asegurar que los alertas de SweetAlert2 se muestren correctamente
+  por encima de los diálogos de Material-UI.
+*/
+
+/* Estilos para SweetAlert2 */
+.swal2-container {
+  z-index: 9999 !important; /* Valor más alto que cualquier diálogo de Material-UI */
+}
+
+.swal2-popup {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Clase personalizada para contenedor de SweetAlert */
+.swal-container-custom {
+  z-index: 9999 !important;
+}
+
+/* Clase personalizada para el popup de SweetAlert */
+.swal-popup-custom {
+  font-size: 1.1rem;
+  padding: 1.25rem;
+}
+
+/* Estilo para los botones de SweetAlert */
+.swal2-confirm {
+  background-color: #1976d2 !important; /* Color primario de Material-UI */
+  border-radius: 4px !important;
+  font-weight: 500 !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+.swal2-confirm:hover {
+  background-color: #1565c0 !important; /* Un poco más oscuro al hover */
+}
+
+/* Estilo para el título */
+.swal2-title {
+  font-weight: 600 !important;
+  color: #333 !important;
+}
+
+/* Estilo para el contenido */
+.swal2-html-container {
+  text-align: left !important;
+}
+
+/* Responsive a pantalla pequeña */
+@media (max-width: 500px) {
+  .swal2-popup {
+    width: 90% !important;
+    max-width: 400px !important;
+  }
+  
+  .swal-popup-custom {
+    font-size: 0.95rem;
+    padding: 1rem;
+  }
+}
+
 
 
