@@ -1,7 +1,7 @@
 // src/App.js - Versión actualizada con Dashboard Administrativo
 import React, { useEffect, useState, useCallback } from 'react';
 import { Route, Routes, Navigate, useLocation } from "react-router-dom";
-import Conversion from './pages/Conversion.js';
+import Conversion from './pages/conversion.js';
 import Extracciones from './pages/Extracciones.js';
 import GestionEmpleados from './pages/Empleados.js';
 import AdminDashboard from './pages/AdminDashboard.js'; // Nuevo dashboard administrativo
