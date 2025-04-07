@@ -1,24 +1,7 @@
 import axios from "axios";
+import { API_URL } from './config';
 
-// Función para determinar la URL base de manera dinámica usando variables de entorno
-const determineBaseUrl = () => {
-  // Verificar si estamos en entorno de producción
-  const isProduction = process.env.NODE_ENV === 'production';
-  
-  // Usar directamente las variables de entorno
-  if (isProduction) {
-    // En Vercel usamos la URL de Heroku para el backend
-    return process.env.REACT_APP_HOST_HEROKU;
-  }
-  
-  // En desarrollo local
-  return process.env.REACT_APP_HOST_LOCAL;
-};
-
-// Determinar la URL base al iniciar
-const API_URL = determineBaseUrl();
-
-console.log('Inicializando API con URL:', API_URL);
+console.log('Inicializando API de conversión con URL:', API_URL);
 
 // Crear una instancia de axios con config común
 const api = axios.create({
@@ -27,6 +10,17 @@ const api = axios.create({
     'Content-Type': 'application/json'
   },
   timeout: 15000 // 15 segundos de timeout
+});
+
+// Agregar interceptor para manejar tokens
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, error => {
+  return Promise.reject(error);
 });
 
 // Conjunto de datos locales para fallback
@@ -42,14 +36,10 @@ const empleadosLocales = [
 // Funciones exportadas
 export const getEmpleados = async () => {
   try {
-    console.log('Obteniendo empleados desde:', `${API_URL}/api/employees`);
-    
     const response = await api.get('/api/employees');
     
     // Verificar que la respuesta es válida
     if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-      console.log('Datos de empleados recibidos:', response.data.length);
-      
       // Transformar al formato requerido por el Select component
       return response.data.map(emp => ({
         value: emp.nombre, 
@@ -59,7 +49,6 @@ export const getEmpleados = async () => {
       console.warn('La respuesta del servidor no contiene datos de empleados válidos');
       
       // Usar datos locales como respaldo
-      console.log('Usando datos locales de empleados');
       return empleadosLocales.map(emp => ({
         value: emp.nombre, 
         label: emp.nombre
@@ -69,7 +58,6 @@ export const getEmpleados = async () => {
     console.error('Error al obtener empleados:', error.message);
     
     // Si falla, devolver datos locales como fallback
-    console.log('Usando datos locales como fallback debido al error');
     return empleadosLocales.map(emp => ({
       value: emp.nombre, 
       label: emp.nombre
@@ -161,18 +149,26 @@ export const postGenerateDailyReport = async () => {
 export const getListadoFiltrado = async () => {
   try {
     const response = await api.get('/api/getListadoFiltrado');
-    return response;
+    return response.data;
   } catch (error) {
     console.error('Error al obtener listado filtrado:', error.message);
-    throw error;
+    return [];
+  }
+};
+
+export const getConfig = async () => {
+  try {
+    const response = await api.get('/api/getConfig');
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener configuración:', error.message);
+    return { limite: 0, limiteDolar: 1 };  // Valores predeterminados
   }
 };
 
 // Función para conciliar conteo de zona (subir y procesar archivos DAT y XLS)
 export const conciliarConteoZona = async (datFile, xlsFile) => {
   try {
-    console.log('Iniciando conciliación de conteo con archivos en:', API_URL);
-    
     // Crear FormData para la subida de archivos
     const formData = new FormData();
     formData.append('datFile', datFile);

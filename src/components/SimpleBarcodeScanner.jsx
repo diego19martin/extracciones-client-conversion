@@ -8,11 +8,10 @@ import {
   Box,
   Typography,
   CircularProgress,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Paper
+  Paper,
+  TextField,
+  Divider,
+  IconButton
 } from '@mui/material';
 import Quagga from 'quagga';
 import Swal from 'sweetalert2';
@@ -20,29 +19,14 @@ import Swal from 'sweetalert2';
 // Configuración personalizada para SweetAlert
 const swalConfig = {
   customClass: {
-    container: 'swal-container-custom', // Clase personalizada para el contenedor
-    popup: 'swal-popup-custom' // Clase personalizada para el popup
+    container: 'swal-container-custom',
+    popup: 'swal-popup-custom'
   },
   buttonsStyling: true,
   confirmButtonColor: '#3085d6',
   cancelButtonColor: '#d33',
   allowOutsideClick: false
 };
-
-// Lectores disponibles
-const readers = [
-  { value: 'code_128_reader', label: 'Code 128' },
-  { value: 'ean_reader', label: 'EAN' },
-  { value: 'ean_8_reader', label: 'EAN-8' },
-  { value: 'code_39_reader', label: 'Code 39' },
-  { value: 'code_39_vin_reader', label: 'Code 39 VIN' },
-  { value: 'codabar_reader', label: 'Codabar' },
-  { value: 'upc_reader', label: 'UPC' },
-  { value: 'upc_e_reader', label: 'UPC-E' },
-  { value: 'i2of5_reader', label: 'Interleaved 2 of 5 (ITF)' },
-  { value: '2of5_reader', label: 'Standard 2 of 5' },
-  { value: 'code_93_reader', label: 'Code 93' }
-];
 
 // Función para configurar el canvas de forma segura
 function configureCanvas(canvasId) {
@@ -57,7 +41,6 @@ function configureCanvas(canvasId) {
   }
   
   try {
-    // Usar willReadFrequently como opción en getContext, no como prop de React
     return canvas.getContext('2d', { willReadFrequently: true });
   } catch (e) {
     console.error("Error al obtener el contexto del canvas:", e);
@@ -84,7 +67,9 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState(null);
-  const [selectedReader, setSelectedReader] = useState('i2of5_reader'); // ITF por defecto
+  const [manualCode, setManualCode] = useState('');
+  const [manualCodeError, setManualCodeError] = useState('');
+  const [lastDetectedCode, setLastDetectedCode] = useState('');
   const scannerRef = useRef(null);
   
   // Referencia a la función de detección para usar en useEffect
@@ -106,11 +91,54 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
     }
   }, [initialized]);
   
+  // Procesar el código detectado o ingresado manualmente
+  const processCode = useCallback((code, isManual = false) => {
+    console.log('Código ' + (isManual ? 'ingresado:' : 'detectado:'), code);
+    
+    // Detener el escáner y cerrar el diálogo
+    stopScanner();
+    onClose();
+    
+    // Mostrar SweetAlert con la información del código
+    setTimeout(() => {
+      // Preparar mensaje según si fue manual o escaneado
+      const title = isManual ? 'Código ingresado manualmente' : 'Código detectado';
+      const formatInfo = isManual ? '' : `
+        <p style="margin-bottom: 8px;"><strong>Formato:</strong> ${
+          formatNames['i2of5'] || 'ITF'
+        }</p>
+      `;
+      
+      Swal.fire({
+        ...swalConfig,
+        icon: 'success',
+        title: title,
+        html: `
+          <div style="text-align: left; margin-bottom: 15px;">
+            <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+              <h3 style="margin-top: 0; color: #0d6efd;">Información del código</h3>
+              <p style="margin-bottom: 8px;"><strong>Valor:</strong> <span style="font-family: monospace; font-size: 1.1em; background: #e9ecef; padding: 2px 6px; border-radius: 4px;">${code}</span></p>
+              ${formatInfo}
+              <p style="margin-bottom: 0;"><strong>Método:</strong> ${isManual ? 'Ingreso manual' : 'Escaneo automático'}</p>
+            </div>
+            <p style="font-size: 0.9em; color: #6c757d;">El código será enviado al sistema para su procesamiento.</p>
+          </div>
+        `,
+        confirmButtonText: 'Aceptar',
+        showCancelButton: false
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // Notificar el código escaneado/ingresado
+          onScan(code);
+        }
+      });
+    }, 100);
+  }, [stopScanner, onClose, onScan]);
+  
   // Función para manejar códigos detectados
   const handleDetected = useCallback((data) => {
     if (data && data.codeResult && data.codeResult.code) {
       const code = data.codeResult.code;
-      console.log('Código detectado:', code);
       
       // Proporcionar feedback visual
       try {
@@ -134,46 +162,22 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
         console.error("Error al dibujar en el canvas:", e);
       }
       
-      // Detener el escáner después de un breve retraso para mostrar el cuadro verde
-      setTimeout(() => {
-        stopScanner();
-        
-        // Primero cerrar el diálogo para que el SweetAlert aparezca correctamente
-        onClose();
-        
-        // Luego mostrar SweetAlert con la información del código
-        setTimeout(() => {
-          // Obtener el nombre amigable del formato
-          const formatName = formatNames[data.codeResult.format] || data.codeResult.format;
-          const readerName = readers.find(r => r.value === selectedReader)?.label || 'Desconocido';
-          
-          Swal.fire({
-            ...swalConfig,
-            icon: 'success',
-            title: 'Código detectado',
-            html: `
-              <div style="text-align: left; margin-bottom: 15px;">
-                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                  <h3 style="margin-top: 0; color: #0d6efd;">Información del código</h3>
-                  <p style="margin-bottom: 8px;"><strong>Valor:</strong> <span style="font-family: monospace; font-size: 1.1em; background: #e9ecef; padding: 2px 6px; border-radius: 4px;">${code}</span></p>
-                  <p style="margin-bottom: 8px;"><strong>Formato:</strong> ${formatName}</p>
-                  <p style="margin-bottom: 0;"><strong>Tipo:</strong> ${readerName}</p>
-                </div>
-                <p style="font-size: 0.9em; color: #6c757d;">El código será enviado al sistema para su procesamiento.</p>
-              </div>
-            `,
-            confirmButtonText: 'Aceptar',
-            showCancelButton: false
-          }).then((result) => {
-            if (result.isConfirmed) {
-              // Notificar el código escaneado
-              onScan(code);
-            }
-          });
-        }, 100); // Pequeño retraso para asegurar que el diálogo se ha cerrado
-      }, 300);
+      // Actualizar el último código detectado y también precompletar el campo manual
+      setLastDetectedCode(code);
+      setManualCode(code);
+      
+      // Reproducir un sonido de éxito
+      try {
+        const successSound = new Audio("data:audio/wav;base64,//uQRAAAAWMSLwUIYAAsYkXgoQwAEaYLWfkWgAI0wWs/ItAAAGDgYtAgAyN+QWaAAihwMWm4G8QQRDiMcCBcH3Cc+CDv/7xA4Tvh9Rz/y8QADBwMWgQAZG/ILNAARQ4GLTcDeIIIhxGOBAuD7hOfBB3/94gcJ3w+o5/5eIAIAAAVwWgQAVQ2ORaIQwEMAJiDg95G4nQL7mQVWI6GwRcfsZAcsKkJvxgxEjzFUgfHoSQ9Qq7KNwqHwuB13MA4a1q/DmBrHgPcmjiGoh//EwC5nGPEmS4RcfkVKOhJf+WOgoxJclFz3kgn//dBA+ya1GhurNn8zb//9NNutNuhz31f////9vt///z+IdAEAAAK4LQIAKobHItEIYCGAExBwe8jcToF9zIKrEdDYIuP2MgOWFSE34wYiR5iqQPj0JIeoVdlG4VD4XA67mAcNa1fhzA1jwHuTRxDUQ//iYBczjHiTJcIuPyKlHQkv/LHQUYkuSi57yQT//uggfZNajQ3Vm//Lnlz//m+//z//o8//3//+///vvvvz//+//cpdAkmDAJChQoSGi4MIlYkAAQkUAT0OdDSUFAGkdXBwICYDNQYEYgtQYHYhWwq6CnQUCJAABHAMXCAAIgDlQIQQMQIEkFswMCggMDGrGyQRQRLwkRAOQUFEmgAAAVYXCi0AAAAAElFTkSuQmCC");
+        successSound.play();
+      } catch (e) {
+        console.error("Error reproduciendo sonido:", e);
+      }
+      
+      // No procesamos el código automáticamente,
+      // dejamos que el usuario revise y confirme manualmente
     }
-  }, [stopScanner, onScan, onClose, selectedReader]);
+  }, []);
   
   // Mantener una referencia actualizada a la función de detección
   useEffect(() => {
@@ -210,7 +214,7 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
         numOfWorkers: 2,
         frequency: 10,
         decoder: {
-          readers: [selectedReader] // Usar el lector seleccionado
+          readers: ['i2of5_reader'] // Usar ITF por defecto
         },
         locate: true
       }, function(err) {
@@ -234,7 +238,7 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
       setError('Ocurrió un error inesperado al iniciar el escáner.');
       setLoading(false);
     }
-  }, [initialized, selectedReader, stopScanner]);
+  }, [initialized, stopScanner]);
 
   // Efecto para iniciar/detener el escáner cuando el diálogo se abre/cierra
   useEffect(() => {
@@ -256,18 +260,16 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
     };
   }, [open, initialized, initScanner, stopScanner]);
 
-  // Manejar cambio de tipo de lector
-  const handleReaderChange = (event) => {
-    const newReader = event.target.value;
-    setSelectedReader(newReader);
-    
-    // Reiniciar el escáner con el nuevo lector
-    if (initialized) {
-      stopScanner();
-      setTimeout(() => {
-        initScanner();
-      }, 300);
+  // Validar y procesar el código manual
+  const handleManualSubmit = () => {
+    // Validar que el código tenga exactamente 8 dígitos
+    if (!/^\d{8}$/.test(manualCode)) {
+      setManualCodeError('El código debe contener exactamente 8 dígitos numéricos');
+      return;
     }
+    
+    // Procesar el código manual
+    processCode(manualCode, true);
   };
 
   return (
@@ -281,25 +283,16 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
       fullWidth
       sx={{ zIndex: 1500 }}
     >
-      <DialogTitle>Escáner de Códigos de Barras</DialogTitle>
+      <DialogTitle sx={{ pb: 1 }}>
+        <Typography variant="h6" component="div">
+          Sistema de Escaneo de Códigos
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          Escanee o ingrese el código de barras de 8 dígitos
+        </Typography>
+      </DialogTitle>
       
-      <DialogContent>
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel>Tipo de Código</InputLabel>
-          <Select
-            value={selectedReader}
-            onChange={handleReaderChange}
-            label="Tipo de Código"
-            disabled={loading || initialized}
-          >
-            {readers.map(reader => (
-              <MenuItem key={reader.value} value={reader.value}>
-                {reader.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        
+      <DialogContent sx={{ pt: 1 }}>
         {error && (
           <Paper 
             elevation={0} 
@@ -309,113 +302,192 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
           </Paper>
         )}
         
-        <Typography variant="body2" sx={{ mb: 1 }}>
-          Coloca el código de barras dentro del recuadro y mantén el dispositivo estable.
-        </Typography>
-        
-        <Box
-          sx={{
-            position: 'relative',
-            width: '100%',
-            height: '300px',
-            border: '1px solid #ccc',
-            borderRadius: '8px',
-            overflow: 'hidden',
-            backgroundColor: '#000'
-          }}
-        >
-          {/* Contenedor para el escáner */}
-          <div 
-            id="scanner-container" 
-            ref={scannerRef}
-            style={{
-              width: '100%',
-              height: '100%',
-              position: 'relative'
-            }}
-          />
-          
-          {/* Canvas para dibujar */}
-          <canvas 
-            id="scanner-canvas"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              pointerEvents: 'none',
-              zIndex: 10
-            }}
-          />
-          
-          {/* Área de enfoque */}
+        {/* Sección de Escáner */}
+        <Box sx={{ mb: 2 }}>
           <Box
             sx={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: '200px',
-              height: '100px',
-              border: '2px dashed #fff',
-              pointerEvents: 'none',
-              zIndex: 20
+              position: 'relative',
+              width: '100%',
+              height: '260px',
+              border: '1px solid #ddd',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              backgroundColor: '#000',
+              boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
             }}
-          />
-          
-          {/* Indicador de carga */}
-          {loading && (
+          >
+            {/* Contenedor para el escáner */}
+            <div 
+              id="scanner-container" 
+              ref={scannerRef}
+              style={{
+                width: '100%',
+                height: '100%',
+                position: 'relative'
+              }}
+            />
+            
+            {/* Canvas para dibujar */}
+            <canvas 
+              id="scanner-canvas"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none',
+                zIndex: 10
+              }}
+            />
+            
+            {/* Área de enfoque */}
             <Box
               sx={{
                 position: 'absolute',
                 top: '50%',
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                padding: '16px',
+                width: '200px',
+                height: '100px',
+                border: '2px dashed rgba(255,255,255,0.8)',
                 borderRadius: '8px',
-                zIndex: 30
+                pointerEvents: 'none',
+                zIndex: 20,
+                boxShadow: '0 0 0 2000px rgba(0, 0, 0, 0.3)'
+              }}
+            />
+            
+            {/* Indicador de carga */}
+            {loading && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  zIndex: 30,
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+                }}
+              >
+                <CircularProgress size={40} color="primary" />
+                <Typography variant="body2" sx={{ mt: 1, color: '#333' }}>
+                  Iniciando cámara...
+                </Typography>
+              </Box>
+            )}
+          </Box>
+          
+          <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center' }}>
+            <Button 
+              onClick={() => {
+                stopScanner();
+                setTimeout(() => {
+                  initScanner();
+                }, 300);
+              }} 
+              color="primary"
+              variant="outlined"
+              size="small"
+              disabled={loading}
+              sx={{ borderRadius: '20px', fontSize: '0.75rem' }}
+            >
+              Reiniciar Cámara
+            </Button>
+          </Box>
+        </Box>
+        
+        <Divider sx={{ my: 2 }}>
+          <Typography variant="caption" sx={{ color: '#777', px: 1 }}>
+            O INGRESE MANUALMENTE
+          </Typography>
+        </Divider>
+        
+        {/* Sección de Ingreso Manual */}
+        <Box sx={{ mt: 2 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'flex-start', 
+            gap: 1,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: '12px'
+            }
+          }}>
+            <TextField
+              fullWidth
+              label="Código de Barras (8 dígitos)"
+              variant="outlined"
+              value={manualCode}
+              onChange={(e) => {
+                // Solo permitir dígitos
+                const value = e.target.value.replace(/[^\d]/g, '');
+                setManualCode(value);
+                // Limpiar el error si se empieza a escribir de nuevo
+                if (manualCodeError) setManualCodeError('');
+              }}
+              error={!!manualCodeError}
+              helperText={manualCodeError}
+              inputProps={{ 
+                maxLength: 8,
+                inputMode: 'numeric',
+                pattern: '[0-9]*'
+              }}
+              placeholder="Ingrese los 8 dígitos"
+              size="medium"
+              sx={{ flexGrow: 1 }}
+            />
+            
+            <Button
+              variant="contained"
+              color="primary"
+              disabled={!manualCode}
+              onClick={handleManualSubmit}
+              sx={{ 
+                height: '56px', 
+                minWidth: '100px',
+                borderRadius: '12px',
+                boxShadow: '0 3px 5px rgba(0,0,0,0.2)'
               }}
             >
-              <CircularProgress size={40} />
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                Iniciando cámara...
+              Enviar
+            </Button>
+          </Box>
+          
+          {lastDetectedCode && (
+            <Box sx={{ 
+              mt: 2, 
+              p: 2, 
+              bgcolor: 'rgba(232, 245, 233, 0.6)', 
+              borderRadius: '8px',
+              border: '1px solid rgba(46, 125, 50, 0.2)'
+            }}>
+              <Typography variant="body2" color="success.main" sx={{ display: 'flex', alignItems: 'center' }}>
+                <span style={{ marginRight: '8px' }}>✓</span>
+                Último código detectado: <strong style={{ marginLeft: '4px' }}>{lastDetectedCode}</strong>
               </Typography>
             </Box>
           )}
         </Box>
-        
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-          Asegúrate de tener buena iluminación y que el código esté enfocado.
-        </Typography>
       </DialogContent>
       
-      <DialogActions>
+      <DialogActions sx={{ px: 3, pb: 3 }}>
         <Button 
           onClick={() => {
             stopScanner();
             onClose();
           }} 
           color="secondary"
+          variant="outlined"
+          sx={{ borderRadius: '10px' }}
         >
           Cancelar
-        </Button>
-        <Button 
-          onClick={() => {
-            stopScanner();
-            setTimeout(() => {
-              initScanner();
-            }, 300);
-          }} 
-          color="primary"
-          disabled={loading}
-        >
-          Reiniciar Escáner
         </Button>
       </DialogActions>
     </Dialog>

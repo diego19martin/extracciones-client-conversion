@@ -18,7 +18,7 @@ import {
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { useAuth } from '../../context/AuthContext';
 
-// Componentes con estilos personalizados (mantener los mismos que tenías)
+// Componentes con estilos personalizados
 const LoginCard = styled(Card)(({ theme }) => ({
   maxWidth: 430,
   width: '100%',
@@ -101,10 +101,9 @@ const RegisterLink = styled(Link)(({ theme }) => ({
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [formError, setFormError] = useState('');
   const [loading, setLoading] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
-  const [loginSuccess, setLoginSuccess] = useState(false);
   
   const { login, user, error: authError, getUserDashboard } = useAuth();
   const navigate = useNavigate();
@@ -114,65 +113,62 @@ const Login = () => {
     setFadeIn(true);
   }, []);
 
-  // Mostrar error de contexto si existe
+  // Vigilar errores de autenticación del contexto
   useEffect(() => {
     if (authError) {
-      setError(authError);
+      setFormError(authError);
+      setLoading(false);
     }
   }, [authError]);
 
-  // Efecto para manejar la navegación después de un login exitoso
+  // Efecto simplificado para manejar redirección cuando el usuario está autenticado
   useEffect(() => {
-    // Solo ejecutar si el login fue exitoso y tenemos un usuario
-    if (loginSuccess && user) {
-      console.log('Login exitoso, navegando al dashboard del usuario');
+    // Si hay un usuario autenticado, redirigir al dashboard correspondiente
+    if (user) {
+      console.log('Usuario autenticado, redirigiendo al dashboard');
       const dashboardRoute = getUserDashboard();
       console.log('Ruta de dashboard:', dashboardRoute);
       
-      // Pequeño retraso para evitar posibles problemas de renderizado
+      // Pequeño retraso para evitar problemas de estado
       const timer = setTimeout(() => {
-        navigate(dashboardRoute);
-      }, 100);
+        navigate(dashboardRoute, { replace: true });
+      }, 300);
       
       return () => clearTimeout(timer);
     }
-  }, [loginSuccess, user, getUserDashboard, navigate]);
-
-  // Si ya estamos autenticados en el montaje inicial, redirigir
-  useEffect(() => {
-    if (user && !loginSuccess) {
-      const dashboardRoute = getUserDashboard();
-      navigate(dashboardRoute);
-    }
-  }, [user, navigate, getUserDashboard, loginSuccess]);
+  }, [user, navigate, getUserDashboard]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Validación básica
-    if (!username || !password) {
-      setError('Usuario y contraseña son requeridos');
+    if (!username.trim()) {
+      setFormError('El usuario es requerido');
+      return;
+    }
+    
+    if (!password) {
+      setFormError('La contraseña es requerida');
       return;
     }
     
     setLoading(true);
-    setError('');
+    setFormError('');
     
     try {
       console.log('Intentando iniciar sesión con:', username);
+      // El login actualiza el estado del usuario en el contexto si es exitoso
       const success = await login(username, password);
-      console.log('Resultado del login:', success);
       
-      if (success) {
-        setLoginSuccess(true);
-        // La navegación se manejará en el useEffect
-      } else {
-        setError('Credenciales incorrectas');
+      if (!success) {
+        setFormError('Credenciales incorrectas');
+        setLoading(false);
       }
+      // No hacemos nada más aquí - el useEffect se encargará de la redirección
+      
     } catch (err) {
-      setError('Error al iniciar sesión. Verifique sus credenciales.');
-      console.error('Error de login:', err);
-    } finally {
+      console.error('Error durante el login:', err);
+      setFormError('Error al iniciar sesión. Por favor intente nuevamente.');
       setLoading(false);
     }
   };
@@ -243,7 +239,7 @@ const Login = () => {
             </LoginHeader>
             
             <CardContent sx={{ px: 4, py: 3 }}>
-              {error && (
+              {formError && (
                 <Alert 
                   severity="error" 
                   sx={{ 
@@ -252,11 +248,11 @@ const Login = () => {
                     boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                   }}
                 >
-                  {error}
+                  {formError}
                 </Alert>
               )}
               
-              <Box component="form" onSubmit={handleSubmit}>
+              <Box component="form" onSubmit={handleSubmit} noValidate>
                 <StyledTextField
                   margin="normal"
                   required
@@ -271,6 +267,7 @@ const Login = () => {
                   disabled={loading}
                   variant="outlined"
                   sx={{ mb: 2 }}
+                  error={!!formError && !username.trim()}
                 />
                 <StyledTextField
                   margin="normal"
@@ -286,6 +283,7 @@ const Login = () => {
                   disabled={loading}
                   variant="outlined"
                   sx={{ mb: 2 }}
+                  error={!!formError && !password}
                 />
                 
                 <LoginButton

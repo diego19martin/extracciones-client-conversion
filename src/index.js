@@ -1,4 +1,5 @@
 // src/index.js
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
@@ -8,11 +9,12 @@ import { AuthProvider } from './context/AuthContext';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
-  <React.StrictMode>
+  // Desactivar StrictMode temporalmente para evitar doble renderizado en desarrollo
+  // <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>
         <App />
       </AuthProvider>
     </BrowserRouter>
-  </React.StrictMode>
+  // </React.StrictMode>
 );
