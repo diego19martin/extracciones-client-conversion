@@ -262,9 +262,9 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
 
   // Validar y procesar el código manual
   const handleManualSubmit = () => {
-    // Validar que el código tenga exactamente 8 dígitos
-    if (!/^\d{8}$/.test(manualCode)) {
-      setManualCodeError('El código debe contener exactamente 8 dígitos numéricos');
+    // Validar que el código tenga exactamente 10 dígitos
+    if (!/^\d{10}$/.test(manualCode)) {
+      setManualCodeError('El código debe contener exactamente 10 dígitos numéricos');
       return;
     }
     
@@ -288,7 +288,7 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
           Sistema de Escaneo de Códigos
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          Escanee o ingrese el código de barras de 8 dígitos
+          Escanee o ingrese el código de barras de 10 dígitos
         </Typography>
       </DialogTitle>
       
@@ -406,7 +406,7 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
         
         <Divider sx={{ my: 2 }}>
           <Typography variant="caption" sx={{ color: '#777', px: 1 }}>
-            O INGRESE MANUALMENTE
+            O INGRESE CÓDIGO DE 10 DÍGITOS
           </Typography>
         </Divider>
         
@@ -422,7 +422,7 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
           }}>
             <TextField
               fullWidth
-              label="Código de Barras (8 dígitos)"
+              label="Código de Barras (10 dígitos)"
               variant="outlined"
               value={manualCode}
               onChange={(e) => {
@@ -435,11 +435,11 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
               error={!!manualCodeError}
               helperText={manualCodeError}
               inputProps={{ 
-                maxLength: 8,
+                maxLength: 10,
                 inputMode: 'numeric',
                 pattern: '[0-9]*'
               }}
-              placeholder="Ingrese los 8 dígitos"
+              placeholder="Ingrese los 10 dígitos"
               size="medium"
               sx={{ flexGrow: 1 }}
             />
