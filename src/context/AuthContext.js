@@ -2,10 +2,12 @@
 import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
 import axios from 'axios';
 
-// Configuración de la URL de la API - Versión simplificada
+// Selección dinámica del endpoint
 const API_URL = process.env.NODE_ENV === 'production'
-  ? 'https://extraccione-server.herokuapp.com/api'
-  : 'http://localhost:4000/api';
+  ? process.env.REACT_APP_HOST_HEROKU // Heroku en producción
+  : process.env.NODE_ENV === 'vercel'
+  ? process.env.REACT_APP_HOST_VERCEL // Vercel en producción
+  : process.env.REACT_APP_HOST_LOCAL; // Localhost en desarrollo
 
 console.log('Inicializando API AuthContext con URL:', API_URL);
 
