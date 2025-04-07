@@ -25,7 +25,6 @@ import {
 import { styled } from '@mui/material/styles';
 import Swal from 'sweetalert2';
 import SimpleBarcodeScanner from './SimpleBarcodeScanner';
-// Importar la función postSelect del API en lugar de usar axios directamente
 import { postSelect } from '../api/conversion.api';
 
 const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
@@ -59,25 +58,25 @@ const TablaMaquinas = ({ info, ext }) => {
   const [finishedRows, setFinishedRows] = useState([]);
   const [noFinishedRows, setNoFinishedRows] = useState([]);
   const [showTableBody, setShowTableBody] = useState(true);
-  const [openDialog, setOpenDialog] = useState(false);
   const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
   const [currentMachine, setCurrentMachine] = useState(null);
   const [extractionStatus, setExtractionStatus] = useState('');
-  const [comment, setComment] = useState('');
-  const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [showError, setShowError] = useState(false);
   
   // Estado para el escáner de headercard
   const [openScannerDialog, setOpenScannerDialog] = useState(false);
-  const [headercard, setHeadercard] = useState('');
 
   const predefinedReasons = [
-    'Llave limada',
-    'Cerradura de Stacker Rota',
-    'Bonus/Juegos gratis',
-    'Puerta principal',
+    'Cerradura 3070',
+    'Cerradura 020',
+    'Cerradura 091',
+    'Cerradura Venia',
+    'Puerta Principal',
+    'Puerta belly',
+    'Pestillo',
+    'Puerta de stacker'
   ];
 
   useEffect(() => {
@@ -124,76 +123,74 @@ const TablaMaquinas = ({ info, ext }) => {
     if (isCompleted) {
       setOpenScannerDialog(true);
     } else {
-      // Para extracciones pendientes, ir directamente al diálogo de motivo
-      setOpenDialog(true);
+      // Para extracciones pendientes, mostrar diálogo de selección de motivo
+      Swal.fire({
+        title: 'Seleccione el motivo',
+        input: 'select',
+        inputOptions: predefinedReasons.reduce((acc, reason) => {
+          acc[reason] = reason;
+          return acc;
+        }, {}),
+        inputPlaceholder: 'Seleccionar motivo',
+        showCancelButton: true,
+        confirmButtonText: 'Confirmar',
+        cancelButtonText: 'Cancelar',
+        inputValidator: (value) => {
+          if (!value) {
+            return 'Debe seleccionar un motivo';
+          }
+        }
+      }).then((result) => {
+        if (result.isConfirmed) {
+          saveSelect(null, result.value);
+        }
+      });
     }
   };
 
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setExtractionStatus('');
-    setComment('');
-    setReason('');
-    setHeadercard('');
-  };
-
-  // Manejar el código escaneado
-  const handleScanComplete = (scannedValue, commentValue) => {
-    setHeadercard(scannedValue);
-    
-    // Si se proporcionó un comentario desde el escáner, usarlo
-    if (commentValue) {
-      setComment(commentValue);
-    }
-    
+  // Manejar el código escaneado y el comentario técnico
+  const handleScanComplete = (scannedValue, technicalIssue) => {
     console.log('Headercard escaneada:', scannedValue);
+    console.log('Novedad técnica:', technicalIssue);
     
-    setOpenScannerDialog(false);
-    
-    // Si ya tenemos un comentario del escáner, podemos guardar directamente
-    if (commentValue) {
-      saveSelect(scannedValue, commentValue);
-    } else {
-      // De lo contrario, abrir diálogo para ingresar comentario
-      setOpenDialog(true);
-    }
+    // Guardar directamente con los valores escaneados
+    saveSelect(scannedValue, technicalIssue);
   };
 
-  const saveSelect = async (scannedHeadercard = null, scannedComment = null) => {
+  const saveSelect = async (headercard = null, commentOrReason = null) => {
     if (!currentMachine) return;
 
     try {
       setLoading(true);
       console.log('Guardando máquina:', currentMachine);
 
-      // Usar los valores escaneados si están disponibles, de lo contrario usar los del estado
-      const finalHeadercard = scannedHeadercard || headercard;
-      const finalComment = scannedComment || (extractionStatus === 'Completa' ? comment : reason);
-
       const selectInfo = {
         maquina: currentMachine.maquina,
         finalizado: extractionStatus,
         asistente1: ext[0]?.value || '',
         asistente2: ext[1]?.value || '',
-        comentario: finalComment,
+        comentario: commentOrReason || '', // Usar el motivo o comentario técnico
         fecha: currentMachine.fecha,
         zona: currentMachine.zona,
-        headercard: finalHeadercard
+        headercard: headercard || ''
       };
       
       console.log('Datos a enviar:', selectInfo);
 
-      // Utilizar la función API en lugar de llamar directamente a axios
-      // Esto asegura el uso de la URL correcta y los headers adecuados
+      // Utilizar la función API
       await postSelect(selectInfo);
 
       // Actualizar el estado de las máquinas con el nuevo estado
       const updatedMaquinas = maquinas.map((m) =>
-        m.id === currentMachine.id ? { ...m, finalizado: extractionStatus, headercard: finalHeadercard } : m
+        m.id === currentMachine.id ? { 
+          ...m, 
+          finalizado: extractionStatus, 
+          headercard: headercard || '',
+          comentario: commentOrReason || ''
+        } : m
       );
+      
       setMaquinas(updatedMaquinas);
-
-      handleCloseDialog();
 
       // Llamar a la función checkIslandCompletion con los estados actualizados
       checkIslandCompletion(updatedMaquinas);
@@ -204,8 +201,10 @@ const TablaMaquinas = ({ info, ext }) => {
         title: 'Extracción registrada',
         text: extractionStatus === 'Completa' 
           ? `Máquina ${currentMachine.maquina} extraída correctamente` +
-            (finalHeadercard ? ` con headercard ${finalHeadercard}` : '')
-          : `Máquina ${currentMachine.maquina} marcada como pendiente`,
+            (headercard ? ` con headercard ${headercard}` : '') +
+            (commentOrReason ? `\nNovedad técnica: ${commentOrReason}` : '')
+          : `Máquina ${currentMachine.maquina} marcada como pendiente` +
+            (commentOrReason ? `\nMotivo: ${commentOrReason}` : ''),
         timer: 3000,
         timerProgressBar: true
       });
@@ -304,7 +303,7 @@ const TablaMaquinas = ({ info, ext }) => {
           </Table>
         </StyledTableContainer>
 
-        {/* Diálogos para confirmar extracción */}
+        {/* Diálogo para confirmar tipo de extracción */}
         <Dialog open={openConfirmDialog} onClose={handleConfirmDialogClose}>
           <DialogTitle>Confirmar Extracción</DialogTitle>
           <DialogContent>
@@ -320,54 +319,7 @@ const TablaMaquinas = ({ info, ext }) => {
           </DialogActions>
         </Dialog>
 
-        {/* Diálogo para ingresar comentario o motivo */}
-        <Dialog open={openDialog} onClose={handleCloseDialog}>
-          <DialogTitle>{extractionStatus === 'Completa' ? 'Finalizar Extracción' : 'Extracción No Realizada'}</DialogTitle>
-          <DialogContent>
-            {extractionStatus === 'Completa' ? (
-              <>
-                {headercard && (
-                  <Typography variant="subtitle1" color="primary" sx={{ mb: 2 }}>
-                    Headercard escaneada: {headercard}
-                  </Typography>
-                )}
-                <TextField
-                  margin="normal"
-                  label="Comentario"
-                  fullWidth
-                  multiline
-                  rows={4}
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                />
-              </>
-            ) : (
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Motivo</InputLabel>
-                <Select value={reason} onChange={(e) => setReason(e.target.value)}>
-                  {predefinedReasons.map((reason, index) => (
-                    <MenuItem key={index} value={reason}>
-                      {reason}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>Cancelar</Button>
-            <Button 
-              onClick={() => saveSelect()} 
-              variant="contained" 
-              color="primary"
-              disabled={loading}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Guardar'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Componente del escáner de códigos de barras */}
+        {/* Componente del escáner de códigos de barras con selección de novedad técnica */}
         <SimpleBarcodeScanner
           open={openScannerDialog}
           onClose={() => setOpenScannerDialog(false)}

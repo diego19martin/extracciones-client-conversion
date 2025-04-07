@@ -9,24 +9,15 @@ import {
   Typography,
   CircularProgress,
   Paper,
-  TextField,
   Divider,
-  IconButton
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormHelperText,
+  Backdrop
 } from '@mui/material';
 import Quagga from 'quagga';
-import Swal from 'sweetalert2';
-
-// Configuración personalizada para SweetAlert
-const swalConfig = {
-  customClass: {
-    container: 'swal-container-custom',
-    popup: 'swal-popup-custom'
-  },
-  buttonsStyling: true,
-  confirmButtonColor: '#3085d6',
-  cancelButtonColor: '#d33',
-  allowOutsideClick: false
-};
 
 // Función para configurar el canvas de forma segura
 function configureCanvas(canvasId) {
@@ -48,29 +39,33 @@ function configureCanvas(canvasId) {
   }
 }
 
-// Mapa de formatos a nombres amigables
-const formatNames = {
-  'code_128': 'Code 128',
-  'code_39': 'Code 39',
-  'code_39_vin': 'Code 39 VIN',
-  'ean_13': 'EAN-13',
-  'ean_8': 'EAN-8',
-  'upc_a': 'UPC-A',
-  'upc_e': 'UPC-E',
-  'codabar': 'Codabar',
-  'i2of5': 'Interleaved 2 of 5 (ITF)',
-  '2of5': 'Standard 2 of 5',
-  'code_93': 'Code 93'
-};
-
-const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
+const SimpleBarcodeScanner = ({ 
+  open, 
+  onClose, 
+  onScan, 
+  isSubmitting = false 
+}) => {
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState(null);
   const [manualCode, setManualCode] = useState('');
   const [manualCodeError, setManualCodeError] = useState('');
   const [lastDetectedCode, setLastDetectedCode] = useState('');
+  const [technicalIssue, setTechnicalIssue] = useState('');
+  const [technicalIssueError, setTechnicalIssueError] = useState('');
   const scannerRef = useRef(null);
+  
+  // Lista predefinida de novedades técnicas
+  const predefinedIssues = [
+    'Cerradura 3070',
+    'Cerradura 020',
+    'Cerradura 091',
+    'Cerradura Venia',
+    'Puerta Principal',
+    'Puerta belly',
+    'Pestillo',
+    'Puerta de stacker'
+  ];
   
   // Referencia a la función de detección para usar en useEffect
   const handleDetectedRef = useRef(null);
@@ -90,99 +85,6 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
       setInitialized(false);
     }
   }, [initialized]);
-  
-  // Procesar el código detectado o ingresado manualmente
-  const processCode = useCallback((code, isManual = false) => {
-    console.log('Código ' + (isManual ? 'ingresado:' : 'detectado:'), code);
-    
-    // Detener el escáner y cerrar el diálogo
-    stopScanner();
-    onClose();
-    
-    // Mostrar SweetAlert con la información del código
-    setTimeout(() => {
-      // Preparar mensaje según si fue manual o escaneado
-      const title = isManual ? 'Código ingresado manualmente' : 'Código detectado';
-      const formatInfo = isManual ? '' : `
-        <p style="margin-bottom: 8px;"><strong>Formato:</strong> ${
-          formatNames['i2of5'] || 'ITF'
-        }</p>
-      `;
-      
-      Swal.fire({
-        ...swalConfig,
-        icon: 'success',
-        title: title,
-        html: `
-          <div style="text-align: left; margin-bottom: 15px;">
-            <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-              <h3 style="margin-top: 0; color: #0d6efd;">Información del código</h3>
-              <p style="margin-bottom: 8px;"><strong>Valor:</strong> <span style="font-family: monospace; font-size: 1.1em; background: #e9ecef; padding: 2px 6px; border-radius: 4px;">${code}</span></p>
-              ${formatInfo}
-              <p style="margin-bottom: 0;"><strong>Método:</strong> ${isManual ? 'Ingreso manual' : 'Escaneo automático'}</p>
-            </div>
-            <p style="font-size: 0.9em; color: #6c757d;">El código será enviado al sistema para su procesamiento.</p>
-          </div>
-        `,
-        confirmButtonText: 'Aceptar',
-        showCancelButton: false
-      }).then((result) => {
-        if (result.isConfirmed) {
-          // Notificar el código escaneado/ingresado
-          onScan(code);
-        }
-      });
-    }, 100);
-  }, [stopScanner, onClose, onScan]);
-  
-  // Función para manejar códigos detectados
-  const handleDetected = useCallback((data) => {
-    if (data && data.codeResult && data.codeResult.code) {
-      const code = data.codeResult.code;
-      
-      // Proporcionar feedback visual
-      try {
-        // Resaltar el área del código detectado
-        if (data.box) {
-          const ctx = configureCanvas('scanner-canvas');
-          if (ctx) {
-            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            ctx.strokeStyle = '#00FF00'; // Verde
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(data.box[0][0], data.box[0][1]);
-            data.box.forEach(point => {
-              ctx.lineTo(point[0], point[1]);
-            });
-            ctx.closePath();
-            ctx.stroke();
-          }
-        }
-      } catch (e) {
-        console.error("Error al dibujar en el canvas:", e);
-      }
-      
-      // Actualizar el último código detectado y también precompletar el campo manual
-      setLastDetectedCode(code);
-      setManualCode(code);
-      
-      // Reproducir un sonido de éxito
-      try {
-        const successSound = new Audio("data:audio/wav;base64,//uQRAAAAWMSLwUIYAAsYkXgoQwAEaYLWfkWgAI0wWs/ItAAAGDgYtAgAyN+QWaAAihwMWm4G8QQRDiMcCBcH3Cc+CDv/7xA4Tvh9Rz/y8QADBwMWgQAZG/ILNAARQ4GLTcDeIIIhxGOBAuD7hOfBB3/94gcJ3w+o5/5eIAIAAAVwWgQAVQ2ORaIQwEMAJiDg95G4nQL7mQVWI6GwRcfsZAcsKkJvxgxEjzFUgfHoSQ9Qq7KNwqHwuB13MA4a1q/DmBrHgPcmjiGoh//EwC5nGPEmS4RcfkVKOhJf+WOgoxJclFz3kgn//dBA+ya1GhurNn8zb//9NNutNuhz31f////9vt///z+IdAEAAAK4LQIAKobHItEIYCGAExBwe8jcToF9zIKrEdDYIuP2MgOWFSE34wYiR5iqQPj0JIeoVdlG4VD4XA67mAcNa1fhzA1jwHuTRxDUQ//iYBczjHiTJcIuPyKlHQkv/LHQUYkuSi57yQT//uggfZNajQ3Vm//Lnlz//m+//z//o8//3//+///vvvvz//+//cpdAkmDAJChQoSGi4MIlYkAAQkUAT0OdDSUFAGkdXBwICYDNQYEYgtQYHYhWwq6CnQUCJAABHAMXCAAIgDlQIQQMQIEkFswMCggMDGrGyQRQRLwkRAOQUFEmgAAAVYXCi0AAAAAElFTkSuQmCC");
-        successSound.play();
-      } catch (e) {
-        console.error("Error reproduciendo sonido:", e);
-      }
-      
-      // No procesamos el código automáticamente,
-      // dejamos que el usuario revise y confirme manualmente
-    }
-  }, []);
-  
-  // Mantener una referencia actualizada a la función de detección
-  useEffect(() => {
-    handleDetectedRef.current = handleDetected;
-  }, [handleDetected]);
 
   // Inicializar el escáner
   const initScanner = useCallback(() => {
@@ -239,6 +141,75 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
       setLoading(false);
     }
   }, [initialized, stopScanner]);
+  
+  // Procesar el código detectado o ingresado manualmente
+  const processCode = useCallback((code, isManual = false) => {
+    console.log('Código ' + (isManual ? 'ingresado:' : 'detectado:'), code);
+    
+    // Detener el escáner temporalmente
+    if (!isManual) {
+      stopScanner();
+    }
+    
+    // Actualizar el último código detectado y también precompletar el campo manual
+    setLastDetectedCode(code);
+    setManualCode(code);
+    setError(null); // Limpiar cualquier error previo
+    
+    // Reproducir un sonido de éxito
+    try {
+      const successSound = new Audio("data:audio/wav;base64,//uQRAAAAWMSLwUIYAAsYkXgoQwAEaYLWfkWgAI0wWs/ItAAAGDgYtAgAyN+QWaAAihwMWm4G8QQRDiMcCBcH3Cc+CDv/7xA4Tvh9Rz/y8QADBwMWgQAZG/ILNAARQ4GLTcDeIIIhxGOBAuD7hOfBB3/94gcJ3w+o5/5eIAIAAAVwWgQAVQ2ORaIQwEMAJiDg95G4nQL7mQVWI6GwRcfsZAcsKkJvxgxEjzFUgfHoSQ9Qq7KNwqHwuB13MA4a1q/DmBrHgPcmjiGoh//EwC5nGPEmS4RcfkVKOhJf+WOgoxJclFz3kgn//dBA+ya1GhurNn8zb//9NNutNuhz31f////9vt///z+IdAEAAAK4LQIAKobHItEIYCGAExBwe8jcToF9zIKrEdDYIuP2MgOWFSE34wYiR5iqQPj0JIeoVdlG4VD4XA67mAcNa1fhzA1jwHuTRxDUQ//iYBczjHiTJcIuPyKlHQkv/LHQUYkuSi57yQT//uggfZNajQ3Vm//Lnlz//m+//z//o8//3//+///vvvvz//+//cpdAkmDAJChQoSGi4MIlYkAAQkUAT0OdDSUFAGkdXBwICYDNQYEYgtQYHYhWwq6CnQUCJAABHAMXCAAIgDlQIQQMQIEkFswMCggMDGrGyQRQRLwkRAOQUFEmgAAAVYXCi0AAAAAElFTkSuQmCC");
+      successSound.play();
+    } catch (e) {
+      console.error("Error reproduciendo sonido:", e);
+    }
+  }, [stopScanner]);
+  
+  // Función para manejar códigos detectados
+  const handleDetected = useCallback((data) => {
+    if (data && data.codeResult && data.codeResult.code) {
+      const code = data.codeResult.code;
+      
+      // Validar que el código tenga 10 dígitos
+      if (!/^\d{10}$/.test(code)) {
+        console.log('Código detectado no tiene 10 dígitos:', code);
+        setError('El código escaneado debe tener 10 dígitos. Intente de nuevo o ingrese manualmente.');
+        return; // Ignorar códigos que no cumplan con el formato requerido
+      }
+      
+      // Proporcionar feedback visual
+      try {
+        // Resaltar el área del código detectado
+        if (data.box) {
+          const ctx = configureCanvas('scanner-canvas');
+          if (ctx) {
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            ctx.strokeStyle = '#00FF00'; // Verde
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(data.box[0][0], data.box[0][1]);
+            data.box.forEach(point => {
+              ctx.lineTo(point[0], point[1]);
+            });
+            ctx.closePath();
+            ctx.stroke();
+          }
+        }
+      } catch (e) {
+        console.error("Error al dibujar en el canvas:", e);
+      }
+      
+      // Procesar el código tras un pequeño retraso para permitir el feedback visual
+      setTimeout(() => {
+        processCode(code, false);
+      }, 500);
+    }
+  }, [processCode]);
+  
+  // Mantener una referencia actualizada a la función de detección
+  useEffect(() => {
+    handleDetectedRef.current = handleDetected;
+  }, [handleDetected]);
 
   // Efecto para iniciar/detener el escáner cuando el diálogo se abre/cierra
   useEffect(() => {
@@ -260,16 +231,31 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
     };
   }, [open, initialized, initScanner, stopScanner]);
 
-  // Validar y procesar el código manual
-  const handleManualSubmit = () => {
+  // Validar y enviar el formulario
+  const handleSubmit = () => {
+    let isValid = true;
+    
     // Validar que el código tenga exactamente 10 dígitos
     if (!/^\d{10}$/.test(manualCode)) {
       setManualCodeError('El código debe contener exactamente 10 dígitos numéricos');
-      return;
+      isValid = false;
+    } else {
+      setManualCodeError('');
     }
     
-    // Procesar el código manual
-    processCode(manualCode, true);
+    // Validar que se haya seleccionado una novedad técnica
+    if (!technicalIssue) {
+      setTechnicalIssueError('Debe seleccionar una novedad técnica');
+      isValid = false;
+    } else {
+      setTechnicalIssueError('');
+    }
+    
+    if (isValid) {
+      // Enviar el código y la novedad técnica
+      onScan(manualCode, technicalIssue);
+      onClose();
+    }
   };
 
   return (
@@ -281,14 +267,19 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
       }} 
       maxWidth="sm" 
       fullWidth
-      sx={{ zIndex: 1500 }}
+      sx={{ 
+        zIndex: 1500,
+        '& .MuiDialog-paper': {
+          zIndex: 1500
+        }
+      }}
     >
       <DialogTitle sx={{ pb: 1 }}>
         <Typography variant="h6" component="div">
-          Sistema de Escaneo de Códigos
+          Escáner de Código Headercard
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          Escanee o ingrese el código de barras de 10 dígitos
+          Escanee el código de 10 dígitos y seleccione la novedad técnica
         </Typography>
       </DialogTitle>
       
@@ -406,24 +397,22 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
         
         <Divider sx={{ my: 2 }}>
           <Typography variant="caption" sx={{ color: '#777', px: 1 }}>
-            O INGRESE CÓDIGO DE 10 DÍGITOS
+            INFORMACIÓN REQUERIDA
           </Typography>
         </Divider>
         
         {/* Sección de Ingreso Manual */}
         <Box sx={{ mt: 2 }}>
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'flex-start', 
-            gap: 1,
-            '& .MuiOutlinedInput-root': {
-              borderRadius: '12px'
-            }
-          }}>
-            <TextField
-              fullWidth
-              label="Código de Barras (10 dígitos)"
-              variant="outlined"
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" gutterBottom sx={{ 
+              fontWeight: 'bold',
+              color: manualCodeError ? '#d32f2f' : 'inherit'
+            }}>
+              Código de Headercard (10 dígitos):
+            </Typography>
+            
+            <input
+              type="text"
               value={manualCode}
               onChange={(e) => {
                 // Solo permitir dígitos
@@ -432,33 +421,79 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
                 // Limpiar el error si se empieza a escribir de nuevo
                 if (manualCodeError) setManualCodeError('');
               }}
-              error={!!manualCodeError}
-              helperText={manualCodeError}
-              inputProps={{ 
-                maxLength: 10,
-                inputMode: 'numeric',
-                pattern: '[0-9]*'
-              }}
               placeholder="Ingrese los 10 dígitos"
-              size="medium"
-              sx={{ flexGrow: 1 }}
+              inputMode="numeric"
+              maxLength={10}
+              style={{
+                width: '100%',
+                padding: '12px',
+                fontSize: '16px',
+                border: manualCodeError ? '2px solid #d32f2f' : '1px solid #ccc',
+                borderRadius: '4px',
+                boxSizing: 'border-box'
+              }}
             />
             
-            <Button
-              variant="contained"
-              color="primary"
-              disabled={!manualCode}
-              onClick={handleManualSubmit}
+            {manualCodeError && (
+              <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+                {manualCodeError}
+              </Typography>
+            )}
+          </Box>
+          
+          {/* Selección de novedad técnica */}
+          <FormControl 
+            fullWidth 
+            error={!!technicalIssueError} 
+            sx={{ 
+              mb: 2, 
+              '& .MuiSelect-select': {
+                zIndex: 2000 // Increase z-index
+              }
+            }}
+          >
+            <InputLabel 
+              id="technical-issue-label"
               sx={{ 
-                height: '56px', 
-                minWidth: '100px',
-                borderRadius: '12px',
-                boxShadow: '0 3px 5px rgba(0,0,0,0.2)'
+                zIndex: 2000 // Increase z-index for label
               }}
             >
-              Enviar
-            </Button>
-          </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <span style={{ color: '#d32f2f', marginRight: '4px' }}>⚠️</span>
+                Novedad Técnica
+              </Box>
+            </InputLabel>
+            <Select
+              labelId="technical-issue-label"
+              value={technicalIssue}
+              onChange={(e) => {
+                setTechnicalIssue(e.target.value);
+                if (technicalIssueError) setTechnicalIssueError('');
+              }}
+              label="🔧 Novedad Técnica"
+              MenuProps={{
+                PaperProps: {
+                  style: {
+                    maxHeight: 300,
+                    zIndex: 2100 // Ensure dropdown is above other elements
+                  }
+                },
+                sx: {
+                  zIndex: 2100 // Additional z-index for the menu
+                }
+              }}
+              sx={{
+                zIndex: 2000 // Increase z-index for the select component
+              }}
+            >
+              {predefinedIssues.map((issue) => (
+                <MenuItem key={issue} value={issue}>
+                  {issue}
+                </MenuItem>
+              ))}
+            </Select>
+            {technicalIssueError && <FormHelperText>{technicalIssueError}</FormHelperText>}
+          </FormControl>
           
           {lastDetectedCode && (
             <Box sx={{ 
@@ -477,7 +512,7 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
         </Box>
       </DialogContent>
       
-      <DialogActions sx={{ px: 3, pb: 3 }}>
+      <DialogActions sx={{ px: 3, pb: 3, display: 'flex', justifyContent: 'space-between' }}>
         <Button 
           onClick={() => {
             stopScanner();
@@ -485,9 +520,28 @@ const SimpleBarcodeScanner = ({ open, onClose, onScan }) => {
           }} 
           color="secondary"
           variant="outlined"
-          sx={{ borderRadius: '10px' }}
+          sx={{ 
+            borderRadius: '10px', 
+            width: '45%',
+            fontSize: '1rem',
+            padding: '10px 0'
+          }}
         >
-          Cancelar
+          CANCELAR
+        </Button>
+        <Button 
+          onClick={handleSubmit} 
+          color="primary"
+          variant="contained"
+          sx={{ 
+            borderRadius: '10px',
+            width: '45%',
+            fontSize: '1rem',
+            padding: '10px 0'
+          }}
+          disabled={!manualCode || !technicalIssue}
+        >
+          CONFIRMAR
         </Button>
       </DialogActions>
     </Dialog>
