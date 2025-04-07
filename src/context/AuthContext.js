@@ -1,15 +1,10 @@
 // src/context/AuthContext.js - Versión corregida
 import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
 import axios from 'axios';
+import { API_URL } from '../api/config'; // Importar la URL de la API desde el archivo de configuración
 
-// Selección dinámica del endpoint
-const API_URL = process.env.NODE_ENV === 'production'
-  ? process.env.REACT_APP_HOST_HEROKU // Heroku en producción
-  : process.env.NODE_ENV === 'vercel'
-  ? process.env.REACT_APP_HOST_VERCEL // Vercel en producción
-  : process.env.REACT_APP_HOST_LOCAL; // Localhost en desarrollo
+console.log('Inicializando API de conversión con URL:', API_URL);
 
-console.log('Inicializando API AuthContext con URL:', API_URL);
 
 // Mapeo de roles a dashboards específicos - Sin cambios
 const ROLE_DASHBOARDS = {
