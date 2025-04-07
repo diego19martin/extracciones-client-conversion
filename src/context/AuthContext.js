@@ -202,10 +202,10 @@ export const AuthProvider = ({ children }) => {
     
     try {
       console.log('Intentando iniciar sesión con:', username);
-      console.log('URL de API:', `${API_URL}/auth/login`);
+      console.log('URL de API:', `${API_URL}/api/auth/login`);
       
       // Petición al backend
-      const response = await axios.post(`${API_URL}/auth/login`, { 
+      const response = await axios.post(`${API_URL}/api/auth/login`, { 
         username, 
         password 
       });
