@@ -1,9 +1,26 @@
 // src/context/AuthContext.js - Versión corregida
 import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { API_URL } from '../api/config'; // Importar la URL de la API desde el archivo de configuración
 
-console.log('Inicializando API de conversión con URL:', API_URL);
+// Función para determinar la URL base de manera dinámica usando variables de entorno
+const determineBaseUrl = () => {
+  // Verificar si estamos en entorno de producción
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // Usar directamente las variables de entorno
+  if (isProduction) {
+    // En Vercel usamos la URL de Heroku para el backend
+    return process.env.REACT_APP_HOST_HEROKU;
+  }
+  
+  // En desarrollo local
+  return process.env.REACT_APP_HOST_LOCAL;
+};
+
+// Determinar la URL base al iniciar
+const API_URL = determineBaseUrl();
+
+console.log('Inicializando API con URL:', API_URL);
 
 
 // Mapeo de roles a dashboards específicos - Sin cambios

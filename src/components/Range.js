@@ -38,7 +38,6 @@ function valuetext(value) {
   return `${value}°C`;
 }
 
-// Función para determinar la URL base de manera dinámica
 // Función para determinar la URL base de manera dinámica usando variables de entorno
 const determineBaseUrl = () => {
   // Verificar si estamos en entorno de producción
