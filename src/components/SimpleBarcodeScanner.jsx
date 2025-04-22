@@ -134,6 +134,9 @@ const SimpleBarcodeScanner = ({
         
         // Registrar el evento de detección
         Quagga.onDetected(handleDetectedRef.current);
+        
+        // Dibujar la máscara oscura alrededor del área de enfoque
+        drawFocusArea();
       });
     } catch (initError) {
       console.error('Error al intentar iniciar Quagga:', initError);
@@ -141,6 +144,54 @@ const SimpleBarcodeScanner = ({
       setLoading(false);
     }
   }, [initialized, stopScanner]);
+  
+  // Función para dibujar la máscara oscura alrededor del área de enfoque
+  const drawFocusArea = () => {
+    const ctx = configureCanvas('overlay-canvas');
+    if (!ctx) return;
+    
+    const canvas = ctx.canvas;
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    // Dimensiones del área de enfoque (rectángulo punteado)
+    const focusWidth = 200;
+    const focusHeight = 100;
+    const focusX = (width - focusWidth) / 2;
+    const focusY = (height - focusHeight) / 2;
+    
+    // Dibujar un rectángulo negro casi opaco sobre toda la pantalla
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.9)'; // Aumentado a 0.9 para más opacidad
+    ctx.fillRect(0, 0, width, height);
+    
+    // Crear un "agujero" en el área de enfoque (borrar el área)
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+    ctx.fillRect(focusX, focusY, focusWidth, focusHeight);
+    
+    // Restaurar el modo de composición
+    ctx.globalCompositeOperation = 'source-over';
+    
+    // Dibujar el borde punteado alrededor del área de enfoque con más brillo
+    ctx.strokeStyle = 'rgba(255, 255, 255, 1)'; // Más brillante para mayor contraste
+    ctx.lineWidth = 3; // Más grueso
+    ctx.setLineDash([5, 5]);
+    ctx.strokeRect(focusX, focusY, focusWidth, focusHeight);
+  };
+  
+  // Efecto para redibujar el área de enfoque cuando cambia el tamaño de la ventana
+  useEffect(() => {
+    if (initialized) {
+      const handleResize = () => {
+        drawFocusArea();
+      };
+      
+      window.addEventListener('resize', handleResize);
+      return () => {
+        window.removeEventListener('resize', handleResize);
+      };
+    }
+  }, [initialized]);
   
   // Procesar el código detectado o ingresado manualmente
   const processCode = useCallback((code, isManual = false) => {
@@ -243,20 +294,20 @@ const SimpleBarcodeScanner = ({
       setManualCodeError('');
     }
     
-    // Validar que se haya seleccionado una novedad técnica
-    if (!technicalIssue) {
-      setTechnicalIssueError('Debe seleccionar una novedad técnica');
-      isValid = false;
-    } else {
-      setTechnicalIssueError('');
-    }
+    // Ya no validamos la selección de novedad técnica como obligatoria
+    // La máquina puede no tener novedades
+    setTechnicalIssueError('');
     
     if (isValid) {
-      // Enviar el código y la novedad técnica
+      // Enviar el código y la novedad técnica (puede ser vacía)
       onScan(manualCode, technicalIssue);
       onClose();
     }
   };
+
+  // Verificar si el botón de confirmar debe estar habilitado
+  // Ahora solo requiere que el código tenga 10 dígitos, la novedad técnica es opcional
+  const isConfirmEnabled = /^\d{10}$/.test(manualCode);
 
   return (
     <Dialog 
@@ -332,20 +383,17 @@ const SimpleBarcodeScanner = ({
               }}
             />
             
-            {/* Área de enfoque */}
-            <Box
-              sx={{
+            {/* Canvas para la máscara oscura */}
+            <canvas 
+              id="overlay-canvas"
+              style={{
                 position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: '200px',
-                height: '100px',
-                border: '2px dashed rgba(255,255,255,0.8)',
-                borderRadius: '8px',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
                 pointerEvents: 'none',
-                zIndex: 20,
-                boxShadow: '0 0 0 2000px rgba(0, 0, 0, 0.3)'
+                zIndex: 15
               }}
             />
             
@@ -459,8 +507,7 @@ const SimpleBarcodeScanner = ({
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <span style={{ color: '#d32f2f', marginRight: '4px' }}>⚠️</span>
-                Novedad Técnica
+                Novedad Técnica (Opcional)
               </Box>
             </InputLabel>
             <Select
@@ -539,7 +586,7 @@ const SimpleBarcodeScanner = ({
             fontSize: '1rem',
             padding: '10px 0'
           }}
-          disabled={!manualCode || !technicalIssue}
+          disabled={!isConfirmEnabled}
         >
           CONFIRMAR
         </Button>
