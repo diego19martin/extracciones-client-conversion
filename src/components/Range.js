@@ -373,55 +373,77 @@ export default function Range({ props }) {
 
   // Memoizamos las funciones para evitar recrearlas en cada render
   const updateSummary = useCallback((pesosValue, dolaresValue, data) => {
+    // Validar que data es un array y tiene elementos
+    if (!Array.isArray(data) || data.length === 0) {
+      console.log('No hay datos para actualizar el resumen');
+      return;
+    }
+  
+    console.log('Actualizando resumen con:', { pesosValue, dolaresValue, dataLength: data.length });
+    
     let extraerPesos = 0;
     let sumTotalPesos = 0;
     let dineroEnStackerPesos = 0;
     let extraerDolares = 0;
     let sumTotalDolares = 0;
     let dineroEnStackerDolares = 0;
-
-    // Calcular dinero en stacker: máquinas con bill menor al límite
+  
+    // Calcular dinero en stacker
     data.forEach(machine => {
-      const bill = parseFloat(machine.bill);
-      if (machine.moneda === 'pesos') {
+      // Asegurarse de que bill es un número
+      const bill = parseFloat(machine.bill || 0);
+      if (isNaN(bill)) return;
+      
+      const moneda = machine.moneda || 'pesos';
+      
+      if (moneda === 'pesos') {
         if (bill < pesosValue) {
-          // Sumar el valor de las máquinas que no cumplen el límite de pesos
           dineroEnStackerPesos += bill;
         }
-      } else if (machine.moneda === 'dolares') {
+      } else if (moneda === 'dolares') {
         if (bill < dolaresValue) {
-          // Sumar el valor de las máquinas que no cumplen el límite de dólares
           dineroEnStackerDolares += bill;
         }
       }
     });
-
-    // Filtrar las máquinas que cumplen con los límites seleccionados
-    const listadoFiltrado = data.filter(machine =>
-      (machine.moneda === 'pesos' && parseFloat(machine.bill) >= pesosValue) ||
-      (machine.moneda === 'dolares' && parseFloat(machine.bill) >= dolaresValue)
-    );
-
-    // Ahora que tenemos el listado filtrado, calculemos el resumen
+  
+    // Filtrar las máquinas que cumplen con los límites
+    const listadoFiltrado = data.filter(machine => {
+      const bill = parseFloat(machine.bill || 0);
+      if (isNaN(bill)) return false;
+      
+      const moneda = machine.moneda || 'pesos';
+      
+      return (moneda === 'pesos' && bill >= pesosValue) ||
+             (moneda === 'dolares' && bill >= dolaresValue);
+    });
+  
+    // Calcular totales
     listadoFiltrado.forEach(machine => {
-      const bill = parseFloat(machine.bill);
-      if (machine.moneda === 'pesos') {
+      const bill = parseFloat(machine.bill || 0);
+      if (isNaN(bill)) return;
+      
+      const moneda = machine.moneda || 'pesos';
+      
+      if (moneda === 'pesos') {
         sumTotalPesos += bill;
         extraerPesos++;
-      } else if (machine.moneda === 'dolares') {
+      } else if (moneda === 'dolares') {
         sumTotalDolares += bill;
         extraerDolares++;
       }
     });
-
-    // Actualizar el estado de las cantidades y totales
+  
+    // Actualizar estados
     setCant(extraerPesos);
     setTotal(sumTotalPesos);
-    setDineroEnStacker(dineroEnStackerPesos);  // Dinero en stacker para pesos
-
+    setDineroEnStacker(dineroEnStackerPesos);
     setCantDolares(extraerDolares);
     setTotalDolares(sumTotalDolares);
-    setDineroEnStackerDolares(dineroEnStackerDolares);  // Dinero en stacker para dólares
+    setDineroEnStackerDolares(dineroEnStackerDolares);
+    
+    // IMPORTANTE: También actualizar listadoFinal con las máquinas filtradas
+    setListadoFinal(listadoFiltrado);
   }, []);
 
   const handleTableUpdate = useCallback((updatedTable) => {
@@ -447,8 +469,8 @@ export default function Range({ props }) {
         // También cargar la última configuración
         const configResponse = await axios.get(`${API_URL}/api/getConfig`);
         if (configResponse.data) {
-          setValuePesos(configResponse.data.limite || 0);
-          setValueDolares(configResponse.data.limiteDolar || 1);
+          setValuePesos(Number(configResponse.data.limite) || 0);
+          setValueDolares(Number(configResponse.data.limiteDolar) || 1);
         }
       }
     } catch (error) {
@@ -492,7 +514,7 @@ export default function Range({ props }) {
   };
 
   const handleClick = async () => {
-    if (listadoFinal.length === 0) {
+    if (!Array.isArray(props) || props.length === 0) {
       Swal.fire({
         icon: 'warning',
         title: 'Error',
@@ -500,21 +522,38 @@ export default function Range({ props }) {
       });
       return;
     }
-
+  
     setIsLoading(true);
     try {
-      console.log('Enviando máquinas:', listadoFinal);
-
-      // Enviar la configuración y las máquinas filtradas al backend
-      await postMaquinas({ machines: resumen, valuePesos, valueDolares });
-      await postConfig({ valuePesos, valueDolares });
-
+      console.log('Enviando configuración y máquinas con límites:', {
+        machines: props,
+        valuePesos: Number(valuePesos),
+        valueDolares: Number(valueDolares)
+      });
+  
+      // Paso 1: Enviar máquinas y límites
+      await postMaquinas({ 
+        machines: props, 
+        valuePesos: Number(valuePesos), 
+        valueDolares: Number(valueDolares) 
+      });
+      
+      // Paso 2: Guardar la configuración
+      await postConfig({ 
+        valuePesos: Number(valuePesos), 
+        valueDolares: Number(valueDolares) 
+      });
+  
+      // Paso 3: Recargar los datos filtrados
+      await loadFilteredData();
+  
       Swal.fire({
         icon: 'success',
         title: 'Configuración confirmada',
         text: 'Los datos de límites han sido enviados correctamente.',
       });
     } catch (error) {
+      console.error('Error:', error);
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -620,8 +659,9 @@ export default function Range({ props }) {
 
         <Box sx={{ my: 3 }}>
           <Typography gutterBottom>Límite de dinero a extraer por máquina (Pesos)</Typography>
+         {/* Slider para Pesos */}
           <Slider
-            value={valuePesos}
+            value={typeof valuePesos === 'number' ? valuePesos : 0}
             onChange={handleChangePesos}
             valueLabelDisplay="auto"
             getAriaValueText={valuetext}
@@ -630,14 +670,14 @@ export default function Range({ props }) {
             step={5000}
           />
           <Typography variant="body2" color="text.secondary">
-            Límite seleccionado: ${valuePesos.toLocaleString('en-US')}
+            Límite seleccionado: ${(typeof valuePesos === 'number' ? valuePesos : 0).toLocaleString('en-US')}
           </Typography>
         </Box>
 
         <Box sx={{ my: 3 }}>
           <Typography gutterBottom>Límite de dólares a extraer por máquina</Typography>
           <Slider
-            value={valueDolares}
+            value={typeof valueDolares === 'number' ? valueDolares : 1}
             onChange={handleChangeDolares}
             valueLabelDisplay="auto"
             getAriaValueText={valuetext}
@@ -646,8 +686,9 @@ export default function Range({ props }) {
             step={5}
           />
           <Typography variant="body2" color="text.secondary">
-            Límite seleccionado: ${valueDolares.toLocaleString('en-US')}
+            Límite seleccionado: ${(typeof valueDolares === 'number' ? valueDolares : 1).toLocaleString('en-US')}
           </Typography>
+
         </Box>
 
         {/* Panel de información para pesos - Adaptable para móvil */}

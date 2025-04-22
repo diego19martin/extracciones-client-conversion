@@ -39,9 +39,13 @@ import DoneAllIcon from '@mui/icons-material/DoneAll';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import { formatCurrency } from '../../utils/formatUtils';
 import axios from 'axios';
-import { determineBaseUrl } from '../../utils/apiUtils';
 
-const API_URL = determineBaseUrl();
+// Definir API_URL directamente para evitar problemas con imports
+const API_URL = process.env.NODE_ENV === 'production' 
+  ? process.env.REACT_APP_HOST_HEROKU 
+  : process.env.REACT_APP_HOST_LOCAL;
+
+console.log('Usando API_URL:', API_URL);
 
 const ZoneSummary = () => {
   const [zonas, setZonas] = useState([]);
@@ -56,6 +60,8 @@ const ZoneSummary = () => {
   const [showMachines, setShowMachines] = useState(false);
   const [selectedZoneMachines, setSelectedZoneMachines] = useState([]);
   const [machinesLoading, setMachinesLoading] = useState(false);
+  // Nuevo estado para manejar errores específicos
+  const [error, setError] = useState(null);
 
   // Obtener el usuario actual (en un sistema real vendría de un context de autenticación)
   const currentUser = {
@@ -66,62 +72,69 @@ const ZoneSummary = () => {
 
   useEffect(() => {
     fetchZonas();
-
-    // Suscribirse a eventos de socket para actualizaciones en tiempo real
-    // (esto requeriría configurar socket.io-client en tu aplicación)
-    /*
-    const socket = io(API_URL);
-    
-    socket.on('zonaConfirmada', (updatedZona) => {
-      // Actualizar la lista de zonas cuando alguna sea confirmada
-      setZonas(prevZonas => 
-        prevZonas.map(z => z.id === updatedZona.id ? updatedZona : z)
-      );
-    });
-
-    return () => {
-      socket.off('zonaConfirmada');
-      socket.disconnect();
-    };
-    */
   }, []);
 
   const fetchZonas = async () => {
     setLoading(true);
+    setError(null); // Limpiar errores previos
+    
     try {
-      // Intentar obtener datos de la tabla zona_conciliacion
-      const response = await axios.get(`${API_URL}/api/zonas-tesorero`);
-      if (response.data && response.data.length > 0) {
-        setZonas(response.data);
+      // Obtener token del localStorage
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        console.error('No se encontró token de autenticación');
+        setError('No se encontró un token de autenticación válido. Por favor, inicie sesión nuevamente.');
+        return;
+      }
+      
+      // Intentar obtener datos con el token de autenticación
+      const response = await axios.get(`${API_URL}/api/zonas-tesorero`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      console.log('Respuesta de API:', response);
+      
+      // Verificar si la respuesta tiene datos en un formato válido
+      if (response.data) {
+        // Si es un array directamente
+        if (Array.isArray(response.data)) {
+          setZonas(response.data);
+        } 
+        // Si los datos están en una propiedad data
+        else if (response.data.data && Array.isArray(response.data.data)) {
+          setZonas(response.data.data);
+        }
+        // Si no tiene un formato reconocible
+        else {
+          console.error('Formato de respuesta no reconocido:', response.data);
+          setError('La respuesta del servidor no tiene el formato esperado. Contacte al administrador.');
+        }
+      } else {
+        setError('No se recibieron datos del servidor.');
       }
     } catch (error) {
       console.error('Error al cargar datos de zonas:', error);
-      // Si hay error, usar datos de ejemplo (para desarrollo)
-      const exampleData = [
-        {
-          id: 1,
-          fecha: '2025-03-24',
-          hora: '20:57:05',
-          zona: '20',
-          usuario: 'argonz',
-          confirmada: 0, // 0 = pendiente de confirmación, 1 = confirmada
-          fecha_confirmacion: null,
-          usuario_confirmacion: null,
-          total_esperado: 15987560,
-          total_contado: 15199260,
-          diferencia: -698600,
-          maquinas_totales: 66,
-          maquinas_coincidentes: 45,
-          maquinas_discrepancia: 0,
-          maquinas_faltantes: 9,
-          maquinas_extra: 9,
-          comentarios: null,
-          archivo_dst: null,
-          archivo_xls: null,
-          estado_confirmacion: 'Pendiente'
+      
+      // Determinar mensaje de error específico según el tipo de error
+      if (error.response) {
+        // Error con respuesta del servidor
+        if (error.response.status === 401) {
+          setError('Su sesión ha expirado o no es válida. Por favor, inicie sesión nuevamente.');
+        } else if (error.response.status === 403) {
+          setError('No tiene permisos para acceder a esta información.');
+        } else {
+          setError(`Error del servidor: ${error.response.status}. ${error.response.data?.message || 'Intente nuevamente más tarde.'}`);
         }
-      ];
-      setZonas(exampleData);
+      } else if (error.request) {
+        // Error sin respuesta del servidor
+        setError('No se pudo conectar con el servidor. Verifique su conexión a internet.');
+      } else {
+        // Error de configuración o inesperado
+        setError(`Error inesperado: ${error.message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -146,12 +159,24 @@ const ZoneSummary = () => {
     setConfirmationLoading(true);
     
     try {
+      // Obtener token del localStorage
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No hay token de autenticación disponible');
+      }
+      
       // Llamada a la API para confirmar la zona
       const response = await axios.post(`${API_URL}/api/confirmar-zona`, {
         zona_id: confirmingZone.id,
         usuario: currentUser.username,
         comentario: confirmationComment,
         fecha_confirmacion: new Date().toISOString()
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
       
       if (response.data && response.data.success) {
@@ -161,7 +186,7 @@ const ZoneSummary = () => {
             ? {
                 ...z, 
                 confirmada: 1, 
-                fecha_confirmacion: response.data.data.fecha_confirmacion || new Date().toISOString(), 
+                fecha_confirmacion: response.data.data?.fecha_confirmacion || new Date().toISOString(), 
                 comentarios: confirmationComment,
                 usuario_confirmacion: currentUser.username,
                 estado_confirmacion: 'Confirmada'
@@ -170,7 +195,6 @@ const ZoneSummary = () => {
         );
         
         setZonas(updatedZonas);
-        setConfirmationLoading(false);
         handleConfirmationClose();
         
         // Mostrar mensaje de éxito
@@ -182,12 +206,13 @@ const ZoneSummary = () => {
       }
     } catch (error) {
       console.error('Error al confirmar zona:', error);
-      setConfirmationLoading(false);
       
       // Mostrar mensaje de error
       setSnackbarMessage(error.response?.data?.message || 'Error al confirmar la zona. Intente nuevamente.');
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
+    } finally {
+      setConfirmationLoading(false);
     }
   };
 
@@ -196,30 +221,55 @@ const ZoneSummary = () => {
     setShowMachines(true);
     
     try {
-      // En un sistema real, aquí iría la llamada a la API para obtener las máquinas de la zona
-      // const response = await axios.get(`${API_URL}/api/zonas/${zone.id}/maquinas`);
-      // setSelectedZoneMachines(response.data);
+      // Obtener token del localStorage
+      const token = localStorage.getItem('token');
       
-      // Para la demostración, usamos datos de ejemplo
-      setTimeout(() => {
-        const fakeMachines = [
-          { maquina: '10000427', serie: 'SN001', esperado: 572000, contado: 0, diferencia: -572000, estado: 'Faltante' },
-          { maquina: '8000731', serie: 'SN002', esperado: 292000, contado: 0, diferencia: -292000, estado: 'Faltante' },
-          { maquina: '9001033', serie: 'SN003', esperado: 148300, contado: 148300, diferencia: 0, estado: 'Coincide' },
-          { maquina: '8002406', serie: 'SN004', esperado: 818200, contado: 818200, diferencia: 0, estado: 'Coincide' },
-          { maquina: '70000875', serie: 'SN005', esperado: 128000, contado: 128000, diferencia: 0, estado: 'Coincide' }
-        ];
-        setSelectedZoneMachines(fakeMachines);
-        setMachinesLoading(false);
-      }, 800);
+      if (!token) {
+        throw new Error('No hay token de autenticación disponible');
+      }
+      
+      try {
+        // Intentar obtener máquinas reales de la API
+        const response = await axios.get(`${API_URL}/api/zonas/${zone.id}/maquinas`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        // Verificar formato de respuesta
+        if (Array.isArray(response.data)) {
+          setSelectedZoneMachines(response.data);
+        } else if (response.data && Array.isArray(response.data.data)) {
+          setSelectedZoneMachines(response.data.data);
+        } else {
+          throw new Error('Formato de respuesta no válido');
+        }
+      } catch (apiError) {
+        console.warn('No se pudieron cargar datos reales de máquinas, usando datos de ejemplo:', apiError);
+        
+        // Para la demostración, usamos datos de ejemplo
+        setTimeout(() => {
+          const fakeMachines = [
+            { maquina: '10000427', serie: 'SN001', esperado: 572000, contado: 0, diferencia: -572000, estado: 'Faltante' },
+            { maquina: '8000731', serie: 'SN002', esperado: 292000, contado: 0, diferencia: -292000, estado: 'Faltante' },
+            { maquina: '9001033', serie: 'SN003', esperado: 148300, contado: 148300, diferencia: 0, estado: 'Coincide' },
+            { maquina: '8002406', serie: 'SN004', esperado: 818200, contado: 818200, diferencia: 0, estado: 'Coincide' },
+            { maquina: '70000875', serie: 'SN005', esperado: 128000, contado: 128000, diferencia: 0, estado: 'Coincide' }
+          ];
+          setSelectedZoneMachines(fakeMachines);
+        }, 800);
+      }
     } catch (error) {
-      console.error('Error al cargar máquinas:', error);
-      setMachinesLoading(false);
+      console.error('Error general al cargar máquinas:', error);
       
       // Mostrar mensaje de error
       setSnackbarMessage('Error al cargar las máquinas de la zona');
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
+    } finally {
+      setTimeout(() => {
+        setMachinesLoading(false);
+      }, 800);
     }
   };
 
@@ -232,6 +282,10 @@ const ZoneSummary = () => {
     setSelectedZoneMachines([]);
   };
 
+  const handleRetry = () => {
+    fetchZonas();
+  };
+
   if (loading) {
     return (
       <Paper sx={{ p: 2, mb: 3, textAlign: 'center' }}>
@@ -241,7 +295,35 @@ const ZoneSummary = () => {
     );
   }
 
-  if (zonas.length === 0) {
+  // Si hay un error, mostrar mensaje y botón para reintentar
+  if (error) {
+    return (
+      <Paper sx={{ p: 3, mb: 3, textAlign: 'center' }}>
+        <Alert 
+          severity="error" 
+          sx={{ mb: 2 }}
+          icon={<WarningAmberIcon fontSize="inherit" />}
+        >
+          <Typography variant="subtitle1" fontWeight="medium">
+            Hubo un problema al cargar los datos
+          </Typography>
+          <Typography variant="body2">
+            {error}
+          </Typography>
+        </Alert>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          onClick={handleRetry}
+          startIcon={<KeyboardArrowUpIcon />}
+        >
+          Reintentar
+        </Button>
+      </Paper>
+    );
+  }
+
+  if (!zonas || zonas.length === 0) {
     return (
       <Paper sx={{ p: 2, mb: 3, textAlign: 'center' }}>
         <Typography variant="body1">No hay datos de zonas disponibles.</Typography>

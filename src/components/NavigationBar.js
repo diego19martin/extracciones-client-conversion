@@ -203,7 +203,7 @@ const NavigationBar = () => {
       <List>
         {userModules.map((module) => (
           <ListItem 
-            button 
+
             key={module.module_id || module.ruta} 
             component={Link} 
             to={module.ruta}

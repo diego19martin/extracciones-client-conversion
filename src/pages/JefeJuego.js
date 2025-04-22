@@ -91,7 +91,7 @@ function Conversion() {
     const promise = new Promise((resolve, reject) => {
       const fileReader = new FileReader();
       fileReader.readAsArrayBuffer(file);
-
+  
       fileReader.onload = (e) => {
         const bufferArray = e.target.result;
         const wb = XLSX.read(bufferArray, { type: "buffer" });
@@ -100,14 +100,24 @@ function Conversion() {
         const data = XLSX.utils.sheet_to_json(ws);
         resolve(data);
       };
-
+  
       fileReader.onerror = (error) => {
         reject(error);
       };
     });
-
-    promise.then((d) => {
-      setItems(d);
+  
+    promise.then((data) => {
+      // Normalizar los datos para asegurar que tengan el formato correcto
+      const processedData = data.map(item => ({
+        machine: item.machine || item.maquina,
+        location: item.location || '',
+        bill: Number(item.bill) || 0,
+        zona: item.zona || '0',
+        moneda: item.moneda || 'pesos'
+      }));
+      
+      console.log("Datos procesados del Excel:", processedData.length, "máquinas");
+      setItems(processedData);
     });
   };
 
