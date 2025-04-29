@@ -229,3 +229,68 @@ export const obtenerResumenPorZonas = async () => {
       throw error;
     }
   };
+
+  /**
+ * Confirmar una zona como tesorero con interfaz mejorada
+ * @param {Object} data - Datos para confirmar
+ * @param {Number|String} data.id - ID de la conciliación a confirmar
+ * @param {String} data.usuario - Usuario que confirma
+ * @param {String} data.comentarios - Comentarios adicionales (opcional)
+ * @returns {Promise} Promise con la respuesta
+ */
+export const confirmarZonaComoTesorero = async (data) => {
+  try {
+    if (!data.id || !data.usuario) {
+      throw new Error('Se requiere ID de conciliación y usuario para confirmar');
+    }
+    
+    // Llamar a la función existente con los parámetros correctos
+    return await confirmarConciliacionZona(data.id, data.usuario);
+  } catch (error) {
+    console.error('Error al confirmar zona como tesorero:', error);
+    throw error;
+  }
+};
+
+/**
+ * Obtener zonas pendientes de confirmación para el tesorero
+ * @param {String} fecha - Fecha en formato YYYY-MM-DD (opcional, por defecto se usa la fecha actual)
+ * @returns {Promise} Promise con los datos de zonas pendientes
+ */
+export const obtenerZonasPendientes = async (fecha) => {
+  try {
+    // Si no se proporciona fecha, usar la fecha actual
+    const fechaParam = fecha || new Date().toISOString().split('T')[0];
+    
+    // Usar la función existente con filtro confirmada=0
+    return await obtenerConciliaciones({
+      fecha: fechaParam,
+      confirmada: 0
+    });
+  } catch (error) {
+    console.error('Error al obtener zonas pendientes:', error);
+    throw error;
+  }
+};
+
+/**
+ * Obtener resumen del tesorero para la fecha actual
+ * @returns {Promise} Promise con los datos de resumen
+ */
+export const obtenerResumenTesoreroDiario = async () => {
+  try {
+    // Usar la fecha actual
+    const fecha = new Date().toISOString().split('T')[0];
+    
+    // Construir la URL con los parámetros de consulta
+    const params = new URLSearchParams();
+    params.append('fecha', fecha);
+    
+    const url = `${API_URL}/api/tesorero/resumen?${params.toString()}`;
+    const response = await axios.get(url);
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener resumen diario del tesorero:', error);
+    throw error;
+  }
+};

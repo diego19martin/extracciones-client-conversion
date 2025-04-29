@@ -30,12 +30,128 @@ const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) =>
       countedPhysical: parseFloat(result.countedPhysical || 0) || 0,
       countedVirtual: parseFloat(result.countedVirtual || 0) || 0,
       status: result.status || 'UNKNOWN',
-      // No enviamos objetos complejos para simplificar
-      billetesFisicos: {},
-      billetesVirtuales: {}
+      // Conservar los objetos completos de billetes
+      billetesFisicos: result.billetesFisicos || {},
+      billetesVirtuales: result.billetesVirtuales || {}
     };
 
     return normalizedResult;
+  };
+  
+  // Función para manejar el guardado y los errores
+  const guardarConciliacion = async (conciliacionData, forceUpdate = false) => {
+    try {
+      // Si se pide forzar la actualización, añadir el flag
+      if (forceUpdate) {
+        conciliacionData.forceUpdate = true;
+      }
+      
+      console.log('Enviando datos al servidor (solo datos, sin archivos)...');
+      console.log('Datos a enviar:', JSON.stringify(conciliacionData, null, 2));
+      
+      // Usar el método que solo envía datos (sin archivos)
+      const response = await guardarConciliacionSoloData(conciliacionData);
+      
+      console.log('Respuesta del servidor:', response);
+      
+      // Mostrar mensaje de éxito
+      Swal.fire({
+        icon: 'success',
+        title: 'Conciliación guardada',
+        html: `
+          <p>La conciliación de la zona <strong>${conciliacionData.zona}</strong> ha sido confirmada correctamente.</p>
+          <p style="margin-top: 10px; color: #4caf50; font-size: 0.9em;">ID de conciliación: ${response.data.id}</p>
+        `,
+        timer: 5000,
+        timerProgressBar: true
+      });
+      
+      // Llamar callback de éxito si existe
+      if (onSuccess && typeof onSuccess === 'function') {
+        onSuccess(response.data);
+      }
+      
+    } catch (error) {
+      console.error('Error al guardar conciliación:', error);
+      
+      // Verificar si el error es porque ya hay máquinas conciliadas hoy
+      if (error.response && error.response.status === 409 && error.response.data.needsConfirmation) {
+        // Obtener las máquinas ya conciliadas
+        const existingMachines = error.response.data.existingMachines || [];
+        const totalExisting = error.response.data.totalExisting || 0;
+        
+        // Crear HTML para mostrar las máquinas en SweetAlert2
+        let machinesHtml = '';
+        
+        // Mostrar hasta 10 máquinas máximo para no sobrecargar la alerta
+        const maxToShow = Math.min(existingMachines.length, 10);
+        
+        for (let i = 0; i < maxToShow; i++) {
+          machinesHtml += `<div style="margin: 5px 0; padding: 5px; background-color: #f5f5f5; border-radius: 4px;">Máquina #${existingMachines[i]}</div>`;
+        }
+        
+        if (existingMachines.length > maxToShow) {
+          machinesHtml += `<div style="text-align: center; margin-top: 10px; color: #666;">... y ${existingMachines.length - maxToShow} máquinas más</div>`;
+        }
+        
+        // Mostrar alerta con SweetAlert2
+        Swal.fire({
+          title: 'Máquinas ya conciliadas hoy',
+          icon: 'warning',
+          html: `
+            <div style="text-align: left;">
+              <div style="margin-bottom: 15px;">
+                <p>Se detectaron <strong>${totalExisting}</strong> máquinas que ya han sido conciliadas hoy.</p>
+                <p>Si continúa, se sobreescribirán los datos de conciliación anteriores.</p>
+              </div>
+              
+              <div style="margin-bottom: 15px;">
+                <p style="font-weight: 500;">Máquinas afectadas:</p>
+                <div style="max-height: 200px; overflow-y: auto; margin-top: 10px; padding: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                  ${machinesHtml}
+                </div>
+              </div>
+              
+              <div style="margin-top: 15px; padding: 10px; background-color: #e3f2fd; border-radius: 4px;">
+                <p style="margin: 0; color: #0d47a1; font-size: 14px;">
+                  <i class="fa fa-info-circle"></i> Las conciliaciones anteriores quedarán registradas en el historial, pero los valores actuales serán reemplazados.
+                </p>
+              </div>
+            </div>
+          `,
+          showCancelButton: true,
+          confirmButtonColor: '#ff9800',
+          cancelButtonColor: '#ccc',
+          confirmButtonText: 'Continuar y sobreescribir',
+          cancelButtonText: 'Cancelar',
+          width: '600px'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            // Si el usuario confirma, intentar guardar nuevamente con forceUpdate
+            guardarConciliacion(conciliacionData, true);
+          }
+        });
+        
+        return;
+      }
+      
+      // Otro tipo de error - mostrar mensaje general
+      let errorMessage = 'Ocurrió un error al confirmar la conciliación.';
+      if (error.response && error.response.data && error.response.data.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      // Si hay un error específico de un campo, mostrarlo
+      if (error.response && error.response.data && error.response.data.error) {
+        errorMessage += ` (${error.response.data.error})`;
+      }
+      
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: errorMessage
+      });
+    }
   };
   
   // Manejar la confirmación mediante SweetAlert2
@@ -146,15 +262,19 @@ const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) =>
       // Normalizar y validar cada resultado para asegurar que tiene la estructura correcta
       const normalizedResults = results.map(normalizeResult);
       
-      console.log('Resultados normalizados:', normalizedResults);
+      console.log('Resultados normalizados:', normalizedResults.length);
       
-      // Preparar datos para guardar
+      // Calcular diferencia entre total esperado y contado
+      const diferencia = (summary.totalCounted || 0) - (summary.totalExpected || 0);
+      
+      // Preparar datos para guardar - asegurando que todos los campos estén presentes
       const conciliacionData = {
         zona,
         usuario: formValues.usuario,
-        comentarios: formValues.comentarios,
+        comentarios: formValues.comentarios || '',
         totalEsperado: summary.totalExpected || 0,
         totalContado: summary.totalCounted || 0,
+        diferencia: diferencia,
         maquinasTotales: normalizedResults.length,
         maquinasCoincidentes: summary.matchingMachines || 0,
         maquinasDiscrepancia: summary.nonMatchingMachines || 0,
@@ -164,48 +284,12 @@ const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) =>
         confirmada: false 
       };
       
-      console.log('Enviando datos al servidor (solo datos, sin archivos)...');
-      
-      // Usar el nuevo método que solo envía datos (sin archivos)
-      const response = await guardarConciliacionSoloData(conciliacionData);
-      
-      console.log('Respuesta del servidor:', response);
-      
-      // Mostrar mensaje de éxito
-      Swal.fire({
-        icon: 'success',
-        title: 'Conciliación guardada',
-        html: `
-          <p>La conciliación de la zona <strong>${zona}</strong> ha sido confirmada correctamente.</p>
-          <p style="margin-top: 10px; color: #4caf50; font-size: 0.9em;">ID de conciliación: ${response.data.id}</p>
-        `,
-        timer: 5000,
-        timerProgressBar: true
-      });
-      
-      // Llamar callback de éxito si existe
-      if (onSuccess && typeof onSuccess === 'function') {
-        onSuccess(response.data);
-      }
+      // Iniciar el proceso de guardado
+      await guardarConciliacion(conciliacionData, false);
       
     } catch (error) {
       console.error('Error al confirmar conciliación:', error);
-      
-      let errorMessage = 'Ocurrió un error al confirmar la conciliación.';
-      if (error.response && error.response.data && error.response.data.message) {
-        errorMessage = error.response.data.message;
-      }
-      
-      // Si hay un error específico de un campo, mostrarlo
-      if (error.response && error.response.data && error.response.data.error) {
-        errorMessage += ` (${error.response.data.error})`;
-      }
-      
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: errorMessage
-      });
+      // El error ya se maneja en guardarConciliacion
     } finally {
       setLoading(false);
     }

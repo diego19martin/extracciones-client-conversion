@@ -458,27 +458,33 @@ export default function Range({ props }) {
     updateSummary(valuePesos, valueDolares, resumen);
   }, [valuePesos, valueDolares, resumen, updateSummary]);
 
-  // Función para cargar datos de listado_filtrado
-  const loadFilteredData = useCallback(async () => {
-    try {
-      setLoadingData(true);
-      const response = await axios.get(`${API_URL}/api/getListadoFiltrado`);
-      if (response.data && response.data.length > 0) {
-        setListadoFinal(response.data);
 
-        // También cargar la última configuración
+
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+
+const loadFilteredData = useCallback(async () => {
+  try {
+    setLoadingData(true);
+    const response = await axios.get(`${API_URL}/api/getListadoFiltrado`);
+    if (response.data && response.data.length > 0) {
+      setListadoFinal(response.data);
+
+      // Solo cargar la configuración la primera vez
+      if (!initialLoadDone) {
         const configResponse = await axios.get(`${API_URL}/api/getConfig`);
         if (configResponse.data) {
           setValuePesos(Number(configResponse.data.limite) || 0);
           setValueDolares(Number(configResponse.data.limiteDolar) || 1);
         }
+        setInitialLoadDone(true);
       }
-    } catch (error) {
-      console.error('Error al cargar listado filtrado:', error);
-    } finally {
-      setLoadingData(false);
     }
-  }, []);
+  } catch (error) {
+    console.error('Error al cargar listado filtrado:', error);
+  } finally {
+    setLoadingData(false);
+  }
+}, [initialLoadDone]); // Ahora depende de initialLoadDone
 
   // Cuando cambia el filtro, reset a la primera página
   useEffect(() => {
@@ -567,7 +573,7 @@ export default function Range({ props }) {
   useEffect(() => {
     setResumen(props);
     updateSummary(valuePesos, valueDolares, props);
-  }, [props, updateSummary, valuePesos, valueDolares]);
+  }, [props, updateSummary]); 
 
   const handleGenerateReport = async () => {
     setIsLoading(true); // Iniciar el estado de cargando

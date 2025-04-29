@@ -56,6 +56,9 @@ const Dashboard = () => {
   const [selectedMachine, setSelectedMachine] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
 
+  const [items, setItems] = useState([0]);
+
+
   // Load filtered data on component mount
   useEffect(() => {
     const fetchListadoFiltrado = async () => {

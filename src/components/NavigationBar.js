@@ -71,8 +71,85 @@ const NavigationBar = () => {
     // Módulos por defecto si no están disponibles en el contexto
     const defaultModules = [];
     
-    // Dashboard Gerencial para admin y jefe_juego
-    if (hasRole('admin') || hasRole('jefe_juego')) {
+    // CASOS PARA USUARIOS CON ROLES ESPECÍFICOS
+    
+    // Si el usuario es exclusivamente de extracciones, solo mostrar ese módulo
+    if (hasRole('extracciones') && !hasRole('admin') && !hasRole('jefe_juego') && !hasRole('tesoreria') && !hasRole('conversion')) {
+      defaultModules.push({
+        module_id: 'extracciones',
+        nombre: 'Extracciones',
+        ruta: '/extracciones',
+        icono: 'money',
+        descripcion: 'Gestión de extracciones',
+        orden: 1
+      });
+      return defaultModules; // Retornar inmediatamente para este rol
+    }
+    
+    // Si el usuario es exclusivamente de tesorería, solo mostrar ese módulo
+    if (hasRole('tesoreria') && !hasRole('admin') && !hasRole('jefe_juego') && !hasRole('extracciones') && !hasRole('conversion')) {
+      defaultModules.push({
+        module_id: 'tesorero',
+        nombre: 'Tesorería',
+        ruta: '/tesorero',
+        icono: 'account_balance',
+        descripcion: 'Panel de tesorería',
+        orden: 1
+      });
+      return defaultModules; // Retornar inmediatamente para este rol
+    }
+    
+    // Si el usuario es exclusivamente de conversión, solo mostrar ese módulo
+    if (hasRole('conversion') && !hasRole('admin') && !hasRole('jefe_juego') && !hasRole('extracciones') && !hasRole('tesoreria')) {
+      defaultModules.push({
+        module_id: 'conversion',
+        nombre: 'Conversión',
+        ruta: '/conversion',
+        icono: 'sync_alt',
+        descripcion: 'Gestión de conversiones',
+        orden: 1
+      });
+      return defaultModules; // Retornar inmediatamente para este rol
+    }
+    
+    // Jefe de Juego: solo acceso a jefe de juego, extracciones y empleados
+    if (hasRole('jefe_juego') && !hasRole('admin')) {
+      // Panel de Jefe de Juego
+      defaultModules.push({
+        module_id: 'jefejuego',
+        nombre: 'Jefe de Juego',
+        ruta: '/jefejuego',
+        icono: 'security',
+        descripcion: 'Panel de control para jefe de juego',
+        orden: 1
+      });
+      
+      // Extracciones
+      defaultModules.push({
+        module_id: 'extracciones',
+        nombre: 'Extracciones',
+        ruta: '/extracciones',
+        icono: 'money',
+        descripcion: 'Gestión de extracciones',
+        orden: 2
+      });
+      
+      // Empleados
+      defaultModules.push({
+        module_id: 'employees',
+        nombre: 'Empleados',
+        ruta: '/employees',
+        icono: 'people',
+        descripcion: 'Gestión de empleados',
+        orden: 3
+      });
+      
+      return defaultModules; // Retornar inmediatamente para jefe_juego
+    }
+    
+    // Administrador: acceso completo a todos los módulos
+    if (hasRole('admin')) {
+      // Dashboard
       defaultModules.push({
         module_id: 'dashboard',
         nombre: 'Dashboard Gerencial',
@@ -81,10 +158,8 @@ const NavigationBar = () => {
         descripcion: 'Panel gerencial con métricas y estadísticas',
         orden: 1
       });
-    }
-    
-    // Jefe de Juego
-    if (hasRole('admin') || hasRole('jefe_juego')) {
+      
+      // Jefe de Juego
       defaultModules.push({
         module_id: 'jefejuego',
         nombre: 'Jefe de Juego',
@@ -93,10 +168,8 @@ const NavigationBar = () => {
         descripcion: 'Panel de control para jefe de juego',
         orden: 2
       });
-    }
-    
-    // Extracciones
-    if (hasRole('admin') || hasRole('jefe_juego') || hasRole('extracciones')) {
+      
+      // Extracciones
       defaultModules.push({
         module_id: 'extracciones',
         nombre: 'Extracciones',
@@ -105,10 +178,8 @@ const NavigationBar = () => {
         descripcion: 'Gestión de extracciones',
         orden: 3
       });
-    }
-    
-    // Tesorería
-    if (hasRole('admin') || hasRole('tesoreria')) {
+      
+      // Tesorería
       defaultModules.push({
         module_id: 'tesorero',
         nombre: 'Tesorería',
@@ -117,10 +188,8 @@ const NavigationBar = () => {
         descripcion: 'Panel de tesorería',
         orden: 4
       });
-    }
-    
-    // Conversión
-    if (hasRole('admin') || hasRole('conversion') || hasRole('tesoreria')) {
+      
+      // Conversión
       defaultModules.push({
         module_id: 'conversion',
         nombre: 'Conversión',
@@ -129,10 +198,8 @@ const NavigationBar = () => {
         descripcion: 'Gestión de conversiones',
         orden: 5
       });
-    }
-    
-    // Empleados
-    if (hasRole('admin') || hasRole('jefe_juego')) {
+      
+      // Empleados
       defaultModules.push({
         module_id: 'employees',
         nombre: 'Empleados',
@@ -167,6 +234,13 @@ const NavigationBar = () => {
   const getIconForModule = (iconName) => {
     return moduleIcons[iconName] || <DashboardIcon />;
   };
+
+  // Función para redireccionar automáticamente al módulo único si es necesario
+  React.useEffect(() => {
+    if (userModules.length === 1 && location.pathname === '/') {
+      navigate(userModules[0].ruta);
+    }
+  }, [location.pathname, navigate, userModules]);
 
   const drawer = (
     <Box sx={{ width: 250 }} role="presentation">
@@ -203,7 +277,6 @@ const NavigationBar = () => {
       <List>
         {userModules.map((module) => (
           <ListItem 
-
             key={module.module_id || module.ruta} 
             component={Link} 
             to={module.ruta}
@@ -244,6 +317,13 @@ const NavigationBar = () => {
     </Box>
   );
 
+  // Para roles únicos, no mostrar botones superiores, solo el título
+  const showNavButtons = !(
+    (hasRole('extracciones') && !hasRole('admin') && !hasRole('jefe_juego') && !hasRole('tesoreria') && !hasRole('conversion')) ||
+    (hasRole('tesoreria') && !hasRole('admin') && !hasRole('jefe_juego') && !hasRole('extracciones') && !hasRole('conversion')) ||
+    (hasRole('conversion') && !hasRole('admin') && !hasRole('jefe_juego') && !hasRole('extracciones') && !hasRole('tesoreria'))
+  );
+
   return (
     <>
       <AppBar position="static" color="primary">
@@ -263,7 +343,7 @@ const NavigationBar = () => {
           <Typography 
             variant="h6" 
             component={Link} 
-            to="/"
+            to={userModules.length === 1 ? userModules[0].ruta : "/"}
             sx={{ 
               flexGrow: 1, 
               textDecoration: 'none', 
@@ -274,7 +354,7 @@ const NavigationBar = () => {
             Sistema Integral de Recaudación
           </Typography>
 
-          {!isMobile && userModules.map((module) => (
+          {!isMobile && showNavButtons && userModules.map((module) => (
             <Button
               key={module.module_id || module.ruta}
               color="inherit"
