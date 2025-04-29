@@ -289,6 +289,7 @@ const handleViewZonaDetails = async (zona) => {
         };
       });
       
+      
       console.log('Máquinas procesadas:', machinesProcessed);
       setZonaMachines(machinesProcessed);
     } else {
