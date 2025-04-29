@@ -290,256 +290,256 @@ export const processXlsFileLocally = (file) => {
  * @returns {Object} Results and summary
  */
 export const compareDataLocally = (datData, xlsData, dbMachines) => {
-    console.log("============ INICIANDO CONCILIACIÓN ============");
-    console.log(`Datos DAT: ${datData.length} registros, XLS: ${xlsData.length} registros`);
-    
-    // Crear un mapa de máquinas del archivo XLS para búsqueda rápida por ID
-    const xlsMachineMap = {};
-    xlsData.forEach(item => {
-      if (item.machineId) {
-        // Normalizar ID para comparaciones más consistentes
-        const normalizedId = item.machineId.toString().trim();
-        xlsMachineMap[normalizedId] = {
+  console.log("============ INICIANDO CONCILIACIÓN ============");
+  console.log(`Datos DAT: ${datData.length} registros, XLS: ${xlsData.length} registros`);
+  
+  // Crear un mapa de máquinas del archivo XLS para búsqueda rápida por ID
+  const xlsMachineMap = {};
+  xlsData.forEach(item => {
+    if (item.machineId) {
+      // Normalizar ID para comparaciones más consistentes
+      const normalizedId = item.machineId.toString().trim();
+      xlsMachineMap[normalizedId] = {
+        ...item,
+        found: false
+      };
+      
+      // También guardar una versión sin ceros a la izquierda para comparaciones alternativas
+      const numericId = parseInt(normalizedId.replace(/^0+/, ''), 10).toString();
+      if (numericId !== normalizedId) {
+        xlsMachineMap[numericId] = {
           ...item,
           found: false
         };
-        
-        // También guardar una versión sin ceros a la izquierda para comparaciones alternativas
-        const numericId = parseInt(normalizedId.replace(/^0+/, ''), 10).toString();
-        if (numericId !== normalizedId) {
-          xlsMachineMap[numericId] = {
-            ...item,
-            found: false
-          };
-        }
-      }
-    });
-  
-    console.log("XLS Machine Map creado con IDs normalizados:", Object.keys(xlsMachineMap));
-  
-    // Crear un mapa inverso de headercard a ID de máquina para referencia
-    const headercardToMachineMap = {};
-    for (const machineId in dbMachines) {
-      const machine = dbMachines[machineId];
-      if (machine && machine.headercard) {
-        const headercard = machine.headercard.toString().trim();
-        headercardToMachineMap[headercard] = machineId;
       }
     }
-  
-    console.log("Mapa de headercard a ID:", headercardToMachineMap);
-  
-    // Arreglos y contadores para los resultados
-    const results = [];
-    let totalExpected = 0;
-    let totalCounted = 0;
-    let matchingCount = 0;
-    let nonMatchingCount = 0;
-    let missingCount = 0;
-    let extraCount = 0;
-  
-    // Totalizar valores esperados del XLS
-    xlsData.forEach(item => {
-      totalExpected += item.expectedAmount || 0;
-    });
-  
-    // Primera pasada: procesar los registros DAT y encontrar coincidencias directas
-    datData.forEach(datItem => {
-      // Normalizar el ID para ser más consistente
-      const normalizedId = datItem.machineId.toString().trim();
-      const numericId = parseInt(normalizedId.replace(/^0+/, ''), 10).toString();
-      
-      console.log(`Procesando máquina DAT - ID: ${normalizedId}, Headercard: ${datItem.headercard}, ` +
-                  `ID interno: ${datItem.internalDatId}, ID numérico: ${numericId}`);
-      
-      // Buscar en XLS usando diferentes variantes del ID
-      let xlsItem = xlsMachineMap[normalizedId];
-      let matchKeyUsed = normalizedId;
-      
-      // Si no se encuentra con el ID directo, intentar con el ID numérico
-      if (!xlsItem && normalizedId !== numericId) {
-        xlsItem = xlsMachineMap[numericId];
-        matchKeyUsed = numericId;
+  });
+
+  console.log("XLS Machine Map creado con IDs normalizados:", Object.keys(xlsMachineMap));
+
+  // Crear un mapa inverso de headercard a ID de máquina para referencia
+  const headercardToMachineMap = {};
+  for (const machineId in dbMachines) {
+    const machine = dbMachines[machineId];
+    if (machine && machine.headercard) {
+      const headercard = machine.headercard.toString().trim();
+      headercardToMachineMap[headercard] = machineId;
+    }
+  }
+
+  console.log("Mapa de headercard a ID:", headercardToMachineMap);
+
+  // Arreglos y contadores para los resultados
+  const results = [];
+  let totalExpected = 0;
+  let totalCounted = 0;
+  let matchingCount = 0;
+  let nonMatchingCount = 0;
+  let missingCount = 0;
+  let extraCount = 0;
+
+  // Totalizar valores esperados del XLS
+  xlsData.forEach(item => {
+    totalExpected += item.expectedAmount || 0;
+  });
+
+  // Primera pasada: procesar los registros DAT y encontrar coincidencias directas
+  datData.forEach(datItem => {
+    // Normalizar el ID para ser más consistente
+    const normalizedId = datItem.machineId.toString().trim();
+    const numericId = parseInt(normalizedId.replace(/^0+/, ''), 10).toString();
+    
+    console.log(`Procesando máquina DAT - ID: ${normalizedId}, Headercard: ${datItem.headercard}, ` +
+                `ID interno: ${datItem.internalDatId}, ID numérico: ${numericId}`);
+    
+    // Buscar en XLS usando diferentes variantes del ID
+    let xlsItem = xlsMachineMap[normalizedId];
+    let matchKeyUsed = normalizedId;
+    
+    // Si no se encuentra con el ID directo, intentar con el ID numérico
+    if (!xlsItem && normalizedId !== numericId) {
+      xlsItem = xlsMachineMap[numericId];
+      matchKeyUsed = numericId;
+    }
+    
+    // Si aún no se encuentra, intentar buscar por headercard en la base de datos
+    if (!xlsItem && datItem.headercard) {
+      const mappedId = headercardToMachineMap[datItem.headercard];
+      if (mappedId && xlsMachineMap[mappedId]) {
+        xlsItem = xlsMachineMap[mappedId];
+        matchKeyUsed = mappedId;
+        console.log(`  ✓ Encontrada coincidencia por headercard: ${datItem.headercard} → ${mappedId}`);
       }
-      
-      // Si aún no se encuentra, intentar buscar por headercard en la base de datos
-      if (!xlsItem && datItem.headercard) {
-        const mappedId = headercardToMachineMap[datItem.headercard];
-        if (mappedId && xlsMachineMap[mappedId]) {
-          xlsItem = xlsMachineMap[mappedId];
-          matchKeyUsed = mappedId;
-          console.log(`  ✓ Encontrada coincidencia por headercard: ${datItem.headercard} → ${mappedId}`);
+    }
+    
+    // Última opción: buscar en todas las claves con parseInt
+    if (!xlsItem) {
+      const datItemNumeric = parseInt(normalizedId);
+      for (const key in xlsMachineMap) {
+        if (parseInt(key) === datItemNumeric && !xlsMachineMap[key].found) {
+          xlsItem = xlsMachineMap[key];
+          matchKeyUsed = key;
+          console.log(`  ✓ Encontrada coincidencia numérica: ${datItemNumeric} ≈ ${key}`);
+          break;
         }
       }
-      
-      // Última opción: buscar en todas las claves con parseInt
-      if (!xlsItem) {
-        const datItemNumeric = parseInt(normalizedId);
-        for (const key in xlsMachineMap) {
-          if (parseInt(key) === datItemNumeric && !xlsMachineMap[key].found) {
-            xlsItem = xlsMachineMap[key];
-            matchKeyUsed = key;
-            console.log(`  ✓ Encontrada coincidencia numérica: ${datItemNumeric} ≈ ${key}`);
-            break;
-          }
-        }
+    }
+    
+    // Obtener datos de la DB
+    let dbItem = dbMachines[normalizedId] || dbMachines[numericId];
+    
+    // Si aún no se encuentra en DB, buscar por headercard
+    if (!dbItem && datItem.headercard) {
+      const mappedId = headercardToMachineMap[datItem.headercard];
+      if (mappedId) {
+        dbItem = dbMachines[mappedId];
       }
+    }
+    
+    const matchFound = !!xlsItem;
+    console.log(`  ${matchFound ? '✓ Coincidencia encontrada' : '✗ No se encontró coincidencia'} usando ID: ${matchKeyUsed}`);
+    
+    if (matchFound) {
+      // Marcar como encontrado para evitar duplicados
+      xlsItem.found = true;
       
-      // Obtener datos de la DB
-      let dbItem = dbMachines[normalizedId] || dbMachines[numericId];
-      
-      // Si aún no se encuentra en DB, buscar por headercard
-      if (!dbItem && datItem.headercard) {
-        const mappedId = headercardToMachineMap[datItem.headercard];
-        if (mappedId) {
-          dbItem = dbMachines[mappedId];
-        }
-      }
-      
-      const matchFound = !!xlsItem;
-      console.log(`  ${matchFound ? '✓ Coincidencia encontrada' : '✗ No se encontró coincidencia'} usando ID: ${matchKeyUsed}`);
-      
-      if (matchFound) {
-        // Marcar como encontrado para evitar duplicados
-        xlsItem.found = true;
-        
-        // Procesar la máquina que tiene datos en DAT y XLS
-        const difference = datItem.totalCounted - xlsItem.expectedAmount;
-        const match = Math.abs(difference) < 1; // Tolerancia de 1 peso
-  
-        if (match) {
-          matchingCount++;
-        } else {
-          nonMatchingCount++;
-        }
-  
-        results.push({
-          machineId: datItem.machineId,
-          headercard: datItem.headercard,
-          internalDatId: datItem.internalDatId,
-          location: xlsItem.location || (dbItem?.location || 'Sin ubicación'),
-          zona: xlsItem.zona || (dbItem?.zona || ''),
-          expectedAmount: xlsItem.expectedAmount || 0,
-          countedAmount: datItem.totalCounted || 0,
-          countedPhysical: datItem.totalFisico || 0,
-          countedVirtual: datItem.totalVirtual || 0,
-          difference,
-          match,
-          status: match ? 'match' : 'mismatch',
-          date: datItem.date,
-          time: datItem.time,
-          billetesFisicos: datItem.billetesFisicos,
-          billetesVirtuales: datItem.billetesVirtuales,
-          dbData: dbItem || null,
-          matchKeyUsed  // Guardar la clave que se usó para encontrar la coincidencia
-        });
-  
-        totalCounted += datItem.totalCounted || 0;
-        
-        console.log(`  Máquina: ${datItem.machineId}, Valor esperado: ${xlsItem.expectedAmount}, ` +
-                    `Valor contado: ${datItem.totalCounted}, Diferencia: ${difference}, ` +
-                    `Coincide: ${match ? 'Sí' : 'No'}`);
+      // Procesar la máquina que tiene datos en DAT y XLS
+      const difference = datItem.totalCounted - xlsItem.expectedAmount;
+      const match = Math.abs(difference) < 1; // Tolerancia de 1 peso
+
+      if (match) {
+        matchingCount++;
       } else {
-        // Máquina en DAT pero no en XLS (extra)
-        extraCount++;
-  
-        results.push({
-          machineId: datItem.machineId,
-          headercard: datItem.headercard,
-          internalDatId: datItem.internalDatId,
-          location: dbItem?.location || 'Desconocida',
-          zona: dbItem?.zona || 'Desconocida',
-          expectedAmount: 0,
-          countedAmount: datItem.totalCounted || 0,
-          countedPhysical: datItem.totalFisico || 0,
-          countedVirtual: datItem.totalVirtual || 0,
-          difference: datItem.totalCounted,
-          match: false,
-          status: 'extra',
-          date: datItem.date,
-          time: datItem.time,
-          billetesFisicos: datItem.billetesFisicos,
-          billetesVirtuales: datItem.billetesVirtuales,
-          dbData: dbItem || null
-        });
-  
-        totalCounted += datItem.totalCounted || 0;
-        
-        console.log(`  Máquina adicional (solo en DAT): ${datItem.machineId}, ` +
-                    `Valor contado: ${datItem.totalCounted}`);
+        nonMatchingCount++;
       }
-    });
-  
-    // Segunda pasada: revisar máquinas que están en XLS pero no en DAT
-    Object.entries(xlsMachineMap).forEach(([key, item]) => {
-      // Solo procesar cada máquina una vez (por la forma en que construimos el mapa)
-      if (!item.found && !Object.values(xlsMachineMap).some(
-          other => other !== item && other.found && other.machineId === item.machineId)) {
-        
-        console.log(`Máquina en XLS pero no en DAT: ${key} (${item.machineId})`);
-        
-        // Verificar si la máquina existe en la base de datos
-        let dbItem = dbMachines[key] || dbMachines[item.machineId];
-  
-        // Máquina en XLS pero no en DAT
-        missingCount++;
-  
-        results.push({
-          machineId: item.machineId,
-          headercard: item.headercard || '',
-          location: item.location || (dbItem?.location || 'Sin ubicación'),
-          zona: item.zona || (dbItem?.zona || ''),
-          expectedAmount: item.expectedAmount || 0,
-          countedAmount: 0,
-          countedPhysical: 0,
-          countedVirtual: 0,
-          difference: -item.expectedAmount,
-          match: false,
-          status: 'missing',
-          date: '',
-          time: '',
-          billetesFisicos: {},
-          billetesVirtuales: {},
-          dbData: dbItem || null
-        });
-      }
-    });
-  
-    // Sort results
-    const sortedResults = results.sort((a, b) => {
-      // First discrepancies, then missing, then extra, finally matching
-      if (a.status !== b.status) {
-        if (a.status === 'mismatch') return -1;
-        if (b.status === 'mismatch') return 1;
-        if (a.status === 'missing') return -1;
-        if (b.status === 'missing') return 1;
-        if (a.status === 'extra') return -1;
-        if (b.status === 'extra') return 1;
-      }
-      return a.machineId.localeCompare(b.machineId);
-    });
-  
-    console.log("============ RESUMEN DE CONCILIACIÓN ============");
-    console.log(`Total esperado: ${totalExpected}`);
-    console.log(`Total contado: ${totalCounted}`);
-    console.log(`Máquinas coincidentes: ${matchingCount}`);
-    console.log(`Máquinas con discrepancias: ${nonMatchingCount}`);
-    console.log(`Máquinas faltantes (solo en XLS): ${missingCount}`);
-    console.log(`Máquinas adicionales (solo en DAT): ${extraCount}`);
-    console.log("================================================");
-  
-    return {
-      results: sortedResults,
-      summary: {
-        totalExpected,
-        totalCounted,
-        matchingMachines: matchingCount,
-        nonMatchingMachines: nonMatchingCount,
-        missingMachines: missingCount,
-        extraMachines: extraCount
-      }
-    };
+
+      results.push({
+        machineId: datItem.machineId,
+        headercard: datItem.headercard,
+        internalDatId: datItem.internalDatId,
+        location: xlsItem.location || (dbItem?.location || 'Sin ubicación'),
+        zona: xlsItem.zona || (dbItem?.zona || ''),
+        expectedAmount: xlsItem.expectedAmount || 0,
+        countedAmount: datItem.totalCounted || 0,
+        countedPhysical: datItem.totalFisico || 0,
+        countedVirtual: datItem.totalVirtual || 0,
+        difference,
+        match,
+        status: match ? 'match' : 'mismatch',
+        date: datItem.date,
+        time: datItem.time,
+        billetesFisicos: datItem.billetesFisicos,
+        billetesVirtuales: datItem.billetesVirtuales,
+        dbData: dbItem || null,
+        matchKeyUsed  // Guardar la clave que se usó para encontrar la coincidencia
+      });
+
+      totalCounted += datItem.totalCounted || 0;
+      
+      console.log(`  Máquina: ${datItem.machineId}, Valor esperado: ${xlsItem.expectedAmount}, ` +
+                  `Valor contado: ${datItem.totalCounted}, Diferencia: ${difference}, ` +
+                  `Coincide: ${match ? 'Sí' : 'No'}`);
+    } else {
+      // Máquina en DAT pero no en XLS (extra)
+      extraCount++;
+
+      results.push({
+        machineId: datItem.machineId,
+        headercard: datItem.headercard,
+        internalDatId: datItem.internalDatId,
+        location: dbItem?.location || 'Desconocida',
+        zona: dbItem?.zona || 'Desconocida',
+        expectedAmount: 0,
+        countedAmount: datItem.totalCounted || 0,
+        countedPhysical: datItem.totalFisico || 0,
+        countedVirtual: datItem.totalVirtual || 0,
+        difference: datItem.totalCounted,
+        match: false,
+        status: 'extra',
+        date: datItem.date,
+        time: datItem.time,
+        billetesFisicos: datItem.billetesFisicos,
+        billetesVirtuales: datItem.billetesVirtuales,
+        dbData: dbItem || null
+      });
+
+      totalCounted += datItem.totalCounted || 0;
+      
+      console.log(`  Máquina adicional (solo en DAT): ${datItem.machineId}, ` +
+                  `Valor contado: ${datItem.totalCounted}`);
+    }
+  });
+
+  // Segunda pasada: revisar máquinas que están en XLS pero no en DAT
+  Object.entries(xlsMachineMap).forEach(([key, item]) => {
+    // Solo procesar cada máquina una vez (por la forma en que construimos el mapa)
+    if (!item.found && !Object.values(xlsMachineMap).some(
+        other => other !== item && other.found && other.machineId === item.machineId)) {
+      
+      console.log(`Máquina en XLS pero no en DAT: ${key} (${item.machineId})`);
+      
+      // Verificar si la máquina existe en la base de datos
+      let dbItem = dbMachines[key] || dbMachines[item.machineId];
+
+      // Máquina en XLS pero no en DAT
+      missingCount++;
+
+      results.push({
+        machineId: item.machineId,
+        headercard: item.headercard || '',
+        location: item.location || (dbItem?.location || 'Sin ubicación'),
+        zona: item.zona || (dbItem?.zona || ''),
+        expectedAmount: item.expectedAmount || 0,
+        countedAmount: 0,
+        countedPhysical: 0,
+        countedVirtual: 0,
+        difference: -item.expectedAmount,
+        match: false,
+        status: 'missing',
+        date: '',
+        time: '',
+        billetesFisicos: {},
+        billetesVirtuales: {},
+        dbData: dbItem || null
+      });
+    }
+  });
+
+  // Sort results
+  const sortedResults = results.sort((a, b) => {
+    // First discrepancies, then missing, then extra, finally matching
+    if (a.status !== b.status) {
+      if (a.status === 'mismatch') return -1;
+      if (b.status === 'mismatch') return 1;
+      if (a.status === 'missing') return -1;
+      if (b.status === 'missing') return 1;
+      if (a.status === 'extra') return -1;
+      if (b.status === 'extra') return 1;
+    }
+    return a.machineId.localeCompare(b.machineId);
+  });
+
+  console.log("============ RESUMEN DE CONCILIACIÓN ============");
+  console.log(`Total esperado: ${totalExpected}`);
+  console.log(`Total contado: ${totalCounted}`);
+  console.log(`Máquinas coincidentes: ${matchingCount}`);
+  console.log(`Máquinas con discrepancias: ${nonMatchingCount}`);
+  console.log(`Máquinas faltantes (solo en XLS): ${missingCount}`);
+  console.log(`Máquinas adicionales (solo en DAT): ${extraCount}`);
+  console.log("================================================");
+
+  return {
+    results: sortedResults,
+    summary: {
+      totalExpected,
+      totalCounted,
+      matchingMachines: matchingCount,
+      nonMatchingMachines: nonMatchingCount,
+      missingMachines: missingCount,
+      extraMachines: extraCount
+    }
   };
+};
 
 /**
  * Show machine details in a modal

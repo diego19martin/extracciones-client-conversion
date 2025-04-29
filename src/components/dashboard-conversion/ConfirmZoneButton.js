@@ -15,10 +15,11 @@ import Swal from 'sweetalert2';
  */
 const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) => {
   const [loading, setLoading] = useState(false);
-  
+
   // Verificar si hay datos suficientes para confirmar
   const canConfirm = summary && results && results.length > 0;
-  
+
+  // Función para normalizar y validar un resultado de máquina
   // Función para normalizar y validar un resultado de máquina
   const normalizeResult = (result) => {
     // Asegurarse de que todos los campos numéricos sean números válidos
@@ -35,9 +36,15 @@ const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) =>
       billetesVirtuales: result.billetesVirtuales || {}
     };
 
+    // Importante: Convertir los billetes a formato JSON string para detalles_billetes
+    normalizedResult.detalles_billetes = JSON.stringify({
+      billetesFisicos: result.billetesFisicos || {},
+      billetesVirtuales: result.billetesVirtuales || {}
+    });
+
     return normalizedResult;
   };
-  
+
   // Función para manejar el guardado y los errores
   const guardarConciliacion = async (conciliacionData, forceUpdate = false) => {
     try {
@@ -45,15 +52,15 @@ const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) =>
       if (forceUpdate) {
         conciliacionData.forceUpdate = true;
       }
-      
+
       console.log('Enviando datos al servidor (solo datos, sin archivos)...');
       console.log('Datos a enviar:', JSON.stringify(conciliacionData, null, 2));
-      
+
       // Usar el método que solo envía datos (sin archivos)
       const response = await guardarConciliacionSoloData(conciliacionData);
-      
+
       console.log('Respuesta del servidor:', response);
-      
+
       // Mostrar mensaje de éxito
       Swal.fire({
         icon: 'success',
@@ -65,35 +72,35 @@ const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) =>
         timer: 5000,
         timerProgressBar: true
       });
-      
+
       // Llamar callback de éxito si existe
       if (onSuccess && typeof onSuccess === 'function') {
         onSuccess(response.data);
       }
-      
+
     } catch (error) {
       console.error('Error al guardar conciliación:', error);
-      
+
       // Verificar si el error es porque ya hay máquinas conciliadas hoy
       if (error.response && error.response.status === 409 && error.response.data.needsConfirmation) {
         // Obtener las máquinas ya conciliadas
         const existingMachines = error.response.data.existingMachines || [];
         const totalExisting = error.response.data.totalExisting || 0;
-        
+
         // Crear HTML para mostrar las máquinas en SweetAlert2
         let machinesHtml = '';
-        
+
         // Mostrar hasta 10 máquinas máximo para no sobrecargar la alerta
         const maxToShow = Math.min(existingMachines.length, 10);
-        
+
         for (let i = 0; i < maxToShow; i++) {
           machinesHtml += `<div style="margin: 5px 0; padding: 5px; background-color: #f5f5f5; border-radius: 4px;">Máquina #${existingMachines[i]}</div>`;
         }
-        
+
         if (existingMachines.length > maxToShow) {
           machinesHtml += `<div style="text-align: center; margin-top: 10px; color: #666;">... y ${existingMachines.length - maxToShow} máquinas más</div>`;
         }
-        
+
         // Mostrar alerta con SweetAlert2
         Swal.fire({
           title: 'Máquinas ya conciliadas hoy',
@@ -131,21 +138,21 @@ const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) =>
             guardarConciliacion(conciliacionData, true);
           }
         });
-        
+
         return;
       }
-      
+
       // Otro tipo de error - mostrar mensaje general
       let errorMessage = 'Ocurrió un error al confirmar la conciliación.';
       if (error.response && error.response.data && error.response.data.message) {
         errorMessage = error.response.data.message;
       }
-      
+
       // Si hay un error específico de un campo, mostrarlo
       if (error.response && error.response.data && error.response.data.error) {
         errorMessage += ` (${error.response.data.error})`;
       }
-      
+
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -153,7 +160,7 @@ const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) =>
       });
     }
   };
-  
+
   // Manejar la confirmación mediante SweetAlert2
   const handleConfirmClick = async () => {
     if (!canConfirm) {
@@ -164,7 +171,7 @@ const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) =>
       });
       return;
     }
-    
+
     // Mostrar el primer modal para ingresar la zona
     const { value: zona } = await Swal.fire({
       title: 'Confirmar Conciliación',
@@ -192,10 +199,10 @@ const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) =>
         return inputZona.trim().toUpperCase();
       }
     });
-    
+
     // Si el usuario cancela, no continuamos
     if (!zona) return;
-    
+
     // Mostrar el segundo modal para confirmar y agregar información adicional
     const { value: formValues } = await Swal.fire({
       title: `Confirmar Zona ${zona}`,
@@ -239,34 +246,34 @@ const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) =>
       preConfirm: () => {
         const usuario = document.getElementById('swal-input-usuario').value;
         const comentarios = document.getElementById('swal-input-comentarios').value;
-        
+
         if (!usuario || usuario.trim() === '') {
           Swal.showValidationMessage('Debe ingresar su nombre de usuario');
           return false;
         }
-        
+
         return {
           usuario: usuario.trim(),
           comentarios: comentarios.trim()
         };
       }
     });
-    
+
     // Si el usuario cancela, no continuamos
     if (!formValues) return;
-    
+
     // Ahora procesamos la confirmación con los datos proporcionados
     setLoading(true);
-    
+
     try {
       // Normalizar y validar cada resultado para asegurar que tiene la estructura correcta
       const normalizedResults = results.map(normalizeResult);
-      
+
       console.log('Resultados normalizados:', normalizedResults.length);
-      
+
       // Calcular diferencia entre total esperado y contado
       const diferencia = (summary.totalCounted || 0) - (summary.totalExpected || 0);
-      
+
       // Preparar datos para guardar - asegurando que todos los campos estén presentes
       const conciliacionData = {
         zona,
@@ -278,15 +285,15 @@ const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) =>
         maquinasTotales: normalizedResults.length,
         maquinasCoincidentes: summary.matchingMachines || 0,
         maquinasDiscrepancia: summary.nonMatchingMachines || 0,
-        maquinasFaltantes: summary.missingMachines || 0, 
+        maquinasFaltantes: summary.missingMachines || 0,
         maquinasExtra: summary.extraMachines || 0,
         resultados: normalizedResults,
-        confirmada: false 
+        confirmada: false
       };
-      
+
       // Iniciar el proceso de guardado
       await guardarConciliacion(conciliacionData, false);
-      
+
     } catch (error) {
       console.error('Error al confirmar conciliación:', error);
       // El error ya se maneja en guardarConciliacion
@@ -294,7 +301,7 @@ const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) =>
       setLoading(false);
     }
   };
-  
+
   return (
     <Button
       variant="contained"

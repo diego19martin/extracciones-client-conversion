@@ -22,7 +22,12 @@ import {
   Card,
   CardHeader,
   CardContent,
-  Grid
+  Grid,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Collapse
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -33,19 +38,332 @@ import {
   Error as ErrorIcon,
   Warning as WarningIcon,
   Info as InfoIcon,
-  MoreVert as MoreVertIcon
+  MoreVert as MoreVertIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  KeyboardArrowUp as KeyboardArrowUpIcon,
+  Visibility as VisibilityIcon,
+  Receipt as ReceiptIcon
 } from '@mui/icons-material';
 
 /**
- * Componente para mostrar detalles de máquinas de una zona específica
- * 
- * @param {Object} props - Propiedades del componente
- * @param {Object} props.zona - Datos de la zona seleccionada
- * @param {Array} props.machines - Lista de máquinas de la zona
- * @param {Boolean} props.loading - Indicador de carga
- * @param {String} props.error - Mensaje de error (si existe)
- * @param {Function} props.onBack - Función para volver a la vista de zonas
- * @param {Function} props.onConfirmZona - Función para confirmar la zona
+ * Componente para mostrar detalles de billetes de una máquina
+ */
+const BillDetailsDialog = ({ open, onClose, machine }) => {
+  if (!machine) return null;
+  
+  // Obtener denominaciones y cantidades
+  const getBillDetails = () => {
+    // Si tenemos datos procesados de detalles_billetes
+    if (machine.billetesFisicos || machine.billetesVirtuales) {
+      return {
+        fisicos: machine.billetesFisicos || {},
+        virtuales: machine.billetesVirtuales || {}
+      };
+    }
+    
+    // Si tenemos datos en el formato antiguo o del archivo DAT
+    // Intentar analizar otros formatos conocidos
+    try {
+      if (machine.detalles_billetes) {
+        const detalles = typeof machine.detalles_billetes === 'string'
+          ? JSON.parse(machine.detalles_billetes)
+          : machine.detalles_billetes;
+          
+        return {
+          fisicos: detalles.billetesFisicos || {},
+          virtuales: detalles.billetesVirtuales || {}
+        };
+      }
+    } catch (error) {
+      console.error('Error al parsear detalles_billetes:', error);
+    }
+    
+    return { fisicos: {}, virtuales: {} };
+  };
+  
+  const { fisicos, virtuales } = getBillDetails();
+  
+  // Determinar si hay datos para mostrar
+  const hasFisicos = Object.keys(fisicos).length > 0;
+  const hasVirtuales = Object.keys(virtuales).length > 0;
+  const hasData = hasFisicos || hasVirtuales;
+  
+  // Función para formatear valores monetarios
+  const formatMoney = (value) => {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value || 0);
+  };
+  
+  // Ordenar las denominaciones
+  const sortedDenominaciones = (billetes) => {
+    return Object.entries(billetes)
+      .sort(([denomA], [denomB]) => parseInt(denomA) - parseInt(denomB));
+  };
+  
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+    >
+      <DialogTitle>
+        Detalle de Billetes - Máquina {machine.machineId || 'N/A'}
+        <IconButton
+          aria-label="close"
+          onClick={onClose}
+          sx={{
+            position: 'absolute',
+            right: 8,
+            top: 8,
+            color: (theme) => theme.palette.grey[500],
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent dividers>
+        {!hasData ? (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            No hay información detallada de billetes disponible para esta máquina.
+          </Alert>
+        ) : (
+          <Box>
+            {hasFisicos && (
+              <Box mb={3}>
+                <Typography variant="h6" gutterBottom>
+                  Billetes Físicos
+                </Typography>
+                <TableContainer component={Paper} variant="outlined">
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Denominación</TableCell>
+                        <TableCell align="right">Cantidad</TableCell>
+                        <TableCell align="right">Valor Total</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {sortedDenominaciones(fisicos).map(([denom, cantidad]) => (
+                        <TableRow key={`fisico-${denom}`}>
+                          <TableCell>{formatMoney(parseInt(denom))}</TableCell>
+                          <TableCell align="right">{cantidad}</TableCell>
+                          <TableCell align="right">{formatMoney(parseInt(denom) * cantidad)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Total</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                          {sortedDenominaciones(fisicos).reduce((acc, [_, cantidad]) => acc + parseInt(cantidad), 0)}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                          {formatMoney(
+                            sortedDenominaciones(fisicos).reduce(
+                              (acc, [denom, cantidad]) => acc + (parseInt(denom) * parseInt(cantidad)), 
+                              0
+                            )
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            )}
+            
+            {hasVirtuales && (
+              <Box>
+                <Typography variant="h6" gutterBottom>
+                  Billetes Virtuales
+                </Typography>
+                <TableContainer component={Paper} variant="outlined">
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Denominación</TableCell>
+                        <TableCell align="right">Cantidad</TableCell>
+                        <TableCell align="right">Valor Total</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {sortedDenominaciones(virtuales).map(([denom, cantidad]) => (
+                        <TableRow key={`virtual-${denom}`}>
+                          <TableCell>{formatMoney(parseInt(denom))}</TableCell>
+                          <TableCell align="right">{cantidad}</TableCell>
+                          <TableCell align="right">{formatMoney(parseInt(denom) * cantidad)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Total</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                          {sortedDenominaciones(virtuales).reduce((acc, [_, cantidad]) => acc + parseInt(cantidad), 0)}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                          {formatMoney(
+                            sortedDenominaciones(virtuales).reduce(
+                              (acc, [denom, cantidad]) => acc + (parseInt(denom) * parseInt(cantidad)), 
+                              0
+                            )
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            )}
+          </Box>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} color="primary">
+          Cerrar
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+/**
+ * Fila expandible para la tabla de máquinas
+ */
+const ExpandableRow = ({ machine, formatMoney, renderStatusChip, onViewBillDetails }) => {
+  const [open, setOpen] = useState(false);
+  
+  // Calcular diferencia
+  const expectedAmount = parseFloat(machine.expectedAmount) || 0;
+  const countedAmount = parseFloat(machine.countedAmount) || 0;
+  const diferencia = countedAmount - expectedAmount;
+  
+  return (
+    <>
+      <TableRow 
+        hover
+        sx={{
+          '&:last-child td, &:last-child th': { border: 0 },
+          bgcolor: machine.status === 'match' || machine.status === 'coincide' ? 'success.50' :
+                  machine.status === 'mismatch' || machine.status === 'no coincide' || machine.status === 'discrepancia' ? 'error.50' :
+                  machine.status === 'missing' || machine.status === 'faltante' ? 'warning.50' :
+                  machine.status === 'extra' ? 'info.50' :
+                  'inherit'
+        }}
+      >
+        <TableCell>
+          <IconButton
+            aria-label="expand row"
+            size="small"
+            onClick={() => setOpen(!open)}
+          >
+            {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+          </IconButton>
+        </TableCell>
+        <TableCell component="th" scope="row">
+          <Typography variant="body2" fontWeight="medium">
+            {machine.machineId || 'N/A'}
+          </Typography>
+        </TableCell>
+        <TableCell>
+          {machine.headercard || 'N/A'}
+        </TableCell>
+        <TableCell>
+          {machine.location || 'N/A'}
+        </TableCell>
+        <TableCell align="right">
+          {formatMoney(expectedAmount)}
+        </TableCell>
+        <TableCell align="right">
+          {formatMoney(countedAmount)}
+        </TableCell>
+        <TableCell 
+          align="right"
+          sx={{ 
+            color: diferencia === 0 ? 'inherit' :
+                    diferencia > 0 ? 'success.main' : 
+                    'error.main',
+            fontWeight: diferencia !== 0 ? 'bold' : 'inherit'
+          }}
+        >
+          {formatMoney(diferencia)}
+        </TableCell>
+        <TableCell align="center">
+          {renderStatusChip(machine.status)}
+        </TableCell>
+        <TableCell align="center">
+          <IconButton
+            color="primary"
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewBillDetails(machine);
+            }}
+            title="Ver detalle de billetes"
+          >
+            <ReceiptIcon />
+          </IconButton>
+        </TableCell>
+      </TableRow>
+      <TableRow>
+        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={9}>
+          <Collapse in={open} timeout="auto" unmountOnExit>
+            <Box sx={{ margin: 1 }}>
+              <Typography variant="h6" gutterBottom component="div">
+                Detalles Adicionales
+              </Typography>
+              <Grid container spacing={2}>
+                {machine.countedPhysical !== undefined && (
+                  <Grid item xs={12} md={6}>
+                    <Paper variant="outlined" sx={{ p: 2 }}>
+                      <Typography variant="subtitle2" gutterBottom>
+                        Valores Contados
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={6}>
+                          <Typography variant="body2" color="text.secondary">
+                            Físico:
+                          </Typography>
+                          <Typography variant="body1">
+                            {formatMoney(machine.countedPhysical)}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <Typography variant="body2" color="text.secondary">
+                            Virtual:
+                          </Typography>
+                          <Typography variant="body1">
+                            {formatMoney(machine.countedVirtual)}
+                          </Typography>
+                        </Grid>
+                      </Grid>
+                    </Paper>
+                  </Grid>
+                )}
+                
+                <Grid item xs={12} md={6}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<ReceiptIcon />}
+                    onClick={() => onViewBillDetails(machine)}
+                    fullWidth
+                    sx={{ height: '100%' }}
+                  >
+                    Ver Detalle de Billetes
+                  </Button>
+                </Grid>
+              </Grid>
+            </Box>
+          </Collapse>
+        </TableCell>
+      </TableRow>
+    </>
+  );
+};
+
+/**
+ * Componente principal para mostrar detalles de máquinas
  */
 const MachineDetailsSection = ({
   zona,
@@ -59,6 +377,10 @@ const MachineDetailsSection = ({
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Estado para modal de detalles de billetes
+  const [billDetailsOpen, setBillDetailsOpen] = useState(false);
+  const [selectedMachine, setSelectedMachine] = useState(null);
   
   // Estado para datos procesados
   const [processedMachines, setProcessedMachines] = useState([]);
@@ -99,6 +421,10 @@ const MachineDetailsSection = ({
     const countedAmount = parseFloat(machine.valor_contado || machine.countedAmount || 0) || 0;
     const difference = countedAmount - expectedAmount;
     
+    // Opcional: valores físicos y virtuales
+    const countedPhysical = parseFloat(machine.valor_fisico || machine.countedPhysical || 0) || 0;
+    const countedVirtual = parseFloat(machine.valor_virtual || machine.countedVirtual || 0) || 0;
+    
     // Determinar estado
     let status = (machine.estado || machine.status || '').toLowerCase();
     
@@ -138,6 +464,23 @@ const MachineDetailsSection = ({
         break;
     }
     
+    // Procesar detalles de billetes
+    let billetesFisicos = {};
+    let billetesVirtuales = {};
+    
+    if (machine.detalles_billetes) {
+      try {
+        const detalles = typeof machine.detalles_billetes === 'string'
+          ? JSON.parse(machine.detalles_billetes)
+          : machine.detalles_billetes;
+          
+        billetesFisicos = detalles.billetesFisicos || {};
+        billetesVirtuales = detalles.billetesVirtuales || {};
+      } catch (error) {
+        console.error('Error al parsear detalles_billetes para máquina', machineId, error);
+      }
+    }
+    
     return {
       machineId,
       headercard,
@@ -145,7 +488,12 @@ const MachineDetailsSection = ({
       expectedAmount,
       countedAmount,
       difference,
-      status
+      status,
+      countedPhysical,
+      countedVirtual,
+      billetesFisicos,
+      billetesVirtuales,
+      detalles_billetes: machine.detalles_billetes
     };
   };
 
@@ -185,6 +533,17 @@ const MachineDetailsSection = ({
     }, { expectedAmount: 0, countedAmount: 0 });
     
     setMachineTotals(totals);
+  };
+  
+  // Abrir modal de detalles de billetes
+  const handleViewBillDetails = (machine) => {
+    setSelectedMachine(machine);
+    setBillDetailsOpen(true);
+  };
+  
+  // Cerrar modal de detalles de billetes
+  const handleCloseBillDetails = () => {
+    setBillDetailsOpen(false);
   };
   
   // Si no hay zona seleccionada, mostrar mensaje
@@ -307,22 +666,6 @@ const MachineDetailsSection = ({
           size="small" 
           color="default"
         />;
-    }
-  };
-  
-  // Obtener color de fondo según el estado
-  const getStatusBackgroundColor = (status) => {
-    switch (status) {
-      case 'match':
-        return 'success.50';
-      case 'mismatch':
-        return 'error.50';
-      case 'missing':
-        return 'warning.50';
-      case 'extra':
-        return 'info.50';
-      default:
-        return 'inherit';
     }
   };
   
@@ -474,17 +817,6 @@ const MachineDetailsSection = ({
                   
                   <Grid item xs={3}>
                     <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="h6" fontWeight="medium" color="error.main">
-                        {machineSummary.discrepancia}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Dif.
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  
-                  <Grid item xs={3}>
-                    <Box sx={{ textAlign: 'center' }}>
                       <Typography variant="h6" fontWeight="medium" color="warning.main">
                         {machineSummary.faltantes}
                       </Typography>
@@ -590,6 +922,7 @@ const MachineDetailsSection = ({
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
+                  <TableCell width="48px"></TableCell>
                   <TableCell>Máquina</TableCell>
                   <TableCell>Serie</TableCell>
                   <TableCell>Ubicación</TableCell>
@@ -597,53 +930,19 @@ const MachineDetailsSection = ({
                   <TableCell align="right">Contado</TableCell>
                   <TableCell align="right">Diferencia</TableCell>
                   <TableCell align="center">Estado</TableCell>
+                  <TableCell align="center">Billetes</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {paginatedMachines.map((machine, index) => {
-                  return (
-                    <TableRow 
-                      key={machine.machineId || index}
-                      hover
-                      sx={{
-                        '&:last-child td, &:last-child th': { border: 0 },
-                        bgcolor: getStatusBackgroundColor(machine.status)
-                      }}
-                    >
-                      <TableCell component="th" scope="row">
-                        <Typography variant="body2" fontWeight="medium">
-                          {machine.machineId || 'N/A'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        {machine.headercard || 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        {machine.location || 'N/A'}
-                      </TableCell>
-                      <TableCell align="right">
-                        {formatMoney(machine.expectedAmount)}
-                      </TableCell>
-                      <TableCell align="right">
-                        {formatMoney(machine.countedAmount)}
-                      </TableCell>
-                      <TableCell 
-                        align="right"
-                        sx={{ 
-                          color: machine.difference === 0 ? 'inherit' :
-                                  machine.difference > 0 ? 'success.main' : 
-                                  'error.main',
-                          fontWeight: machine.difference !== 0 ? 'bold' : 'inherit'
-                        }}
-                      >
-                        {formatMoney(machine.difference)}
-                      </TableCell>
-                      <TableCell align="center">
-                        {renderStatusChip(machine.status)}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {paginatedMachines.map((machine, index) => (
+                  <ExpandableRow 
+                    key={machine.machineId || index}
+                    machine={machine}
+                    formatMoney={formatMoney}
+                    renderStatusChip={renderStatusChip}
+                    onViewBillDetails={handleViewBillDetails}
+                  />
+                ))}
               </TableBody>
             </Table>
           </TableContainer>
@@ -664,6 +963,13 @@ const MachineDetailsSection = ({
           />
         )}
       </Box>
+      
+      {/* Modal de detalles de billetes */}
+      <BillDetailsDialog 
+        open={billDetailsOpen}
+        onClose={handleCloseBillDetails}
+        machine={selectedMachine}
+      />
     </Paper>
   );
 };

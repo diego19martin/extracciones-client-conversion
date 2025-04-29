@@ -68,31 +68,60 @@ axios.interceptors.response.use(
  * @returns {Promise} Promise con la respuesta
  */
 export const guardarConciliacionSoloData = async (conciliacionData) => {
-    try {
-      console.log('Enviando conciliación (solo datos) a:', `${API_URL}/api/zonas/conciliacion-data`);
-      
-      // Validación básica
-      if (!conciliacionData || typeof conciliacionData !== 'object') {
-        throw new Error('Se requieren datos de conciliación válidos');
-      }
-      
-      if (!conciliacionData.zona || !conciliacionData.usuario) {
-        throw new Error('Se requiere zona y usuario para la conciliación');
-      }
-      
-      // Enviar directamente como JSON
-      return await axios.post(`${API_URL}/api/zonas/conciliacion-data`, conciliacionData, {
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        timeout: 30000 // 30 segundos es suficiente para datos JSON
-      });
-      
-    } catch (error) {
-      console.error('Error en guardarConciliacionSoloData:', error);
-      throw error;
+  try {
+    console.log('Enviando conciliación (solo datos) a:', `${API_URL}/api/zonas/conciliacion-data`);
+    
+    // Validación básica
+    if (!conciliacionData || typeof conciliacionData !== 'object') {
+      throw new Error('Se requieren datos de conciliación válidos');
     }
-  };
+    
+    if (!conciliacionData.zona || !conciliacionData.usuario) {
+      throw new Error('Se requiere zona y usuario para la conciliación');
+    }
+    
+    // Verificar que el campo resultados sea un array
+    if (!Array.isArray(conciliacionData.resultados)) {
+      throw new Error('El campo resultados debe ser un array válido');
+    }
+    
+    // Verificar que cada máquina tenga el campo detalles_billetes como string
+    conciliacionData.resultados = conciliacionData.resultados.map(machine => {
+      let result = { ...machine };
+      
+      // Si tiene billetesFisicos o billetesVirtuales pero no detalles_billetes, crearlo
+      if ((result.billetesFisicos || result.billetesVirtuales) && !result.detalles_billetes) {
+        result.detalles_billetes = JSON.stringify({
+          billetesFisicos: result.billetesFisicos || {},
+          billetesVirtuales: result.billetesVirtuales || {}
+        });
+      }
+      
+      // Si detalles_billetes no es string, convertirlo
+      if (result.detalles_billetes && typeof result.detalles_billetes !== 'string') {
+        result.detalles_billetes = JSON.stringify(result.detalles_billetes);
+      }
+      
+      return result;
+    });
+    
+    // Log detallado para depuración
+    console.log(`Enviando conciliación con ${conciliacionData.resultados.length} máquinas.`);
+    console.log('Primer registro:', conciliacionData.resultados[0]);
+    
+    // Enviar directamente como JSON
+    return await axios.post(`${API_URL}/api/zonas/conciliacion-data`, conciliacionData, {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      timeout: 30000 // 30 segundos es suficiente para datos JSON
+    });
+    
+  } catch (error) {
+    console.error('Error en guardarConciliacionSoloData:', error);
+    throw error;
+  }
+};
 
 /**
  * Confirmar una conciliación de zona existente
