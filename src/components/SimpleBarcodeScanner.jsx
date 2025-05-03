@@ -15,9 +15,18 @@ import {
   Select,
   MenuItem,
   FormHelperText,
-  Backdrop
+  Slider,
+  Switch,
+  FormControlLabel,
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import Quagga from 'quagga';
+import FlashlightOnIcon from '@mui/icons-material/FlashlightOn';
+import FlashlightOffIcon from '@mui/icons-material/FlashlightOff';
+import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import ZoomOutIcon from '@mui/icons-material/ZoomOut';
+import AdjustIcon from '@mui/icons-material/Adjust';
 
 // Función para configurar el canvas de forma segura
 function configureCanvas(canvasId) {
@@ -53,6 +62,13 @@ const SimpleBarcodeScanner = ({
   const [lastDetectedCode, setLastDetectedCode] = useState('');
   const [technicalIssue, setTechnicalIssue] = useState('');
   const [technicalIssueError, setTechnicalIssueError] = useState('');
+  const [torchEnabled, setTorchEnabled] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(0);
+  const [focusAreaSize, setFocusAreaSize] = useState(70); // Porcentaje del área de enfoque (por defecto 70%)
+  const [hasFlashlight, setHasFlashlight] = useState(false);
+  const [videoTrack, setVideoTrack] = useState(null);
+  const [quality, setQuality] = useState("medium"); // quality: low, medium, high
+  
   const scannerRef = useRef(null);
   
   // Lista predefinida de novedades técnicas
@@ -70,6 +86,79 @@ const SimpleBarcodeScanner = ({
   // Referencia a la función de detección para usar en useEffect
   const handleDetectedRef = useRef(null);
   
+  // Verificar disponibilidad de linterna
+  const checkFlashlight = useCallback(async () => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+        console.log('API de mediaDevices no soportada');
+        return;
+      }
+      
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const hasFlash = devices.some(device => 
+        device.kind === 'videoinput' && device.getCapabilities && 
+        device.getCapabilities().torch
+      );
+      
+      setHasFlashlight(hasFlash);
+      console.log('Linterna disponible:', hasFlash);
+    } catch (error) {
+      console.error('Error al verificar linterna:', error);
+      setHasFlashlight(false);
+    }
+  }, []);
+  
+  // Controlar la linterna
+  const toggleTorch = useCallback(async () => {
+    if (videoTrack && hasFlashlight) {
+      try {
+        await videoTrack.applyConstraints({
+          advanced: [{ torch: !torchEnabled }]
+        });
+        setTorchEnabled(!torchEnabled);
+        console.log('Linterna:', !torchEnabled ? 'ENCENDIDA' : 'APAGADA');
+      } catch (error) {
+        console.error('Error al controlar la linterna:', error);
+        setError('No se pudo controlar la linterna. ' + error.message);
+      }
+    }
+  }, [videoTrack, hasFlashlight, torchEnabled]);
+  
+  // Ajustar el zoom
+  const handleZoomChange = useCallback((newValue) => {
+    setZoomLevel(newValue);
+    
+    if (videoTrack) {
+      try {
+        const capabilities = videoTrack.getCapabilities();
+        if (capabilities.zoom) {
+          const min = capabilities.zoom.min || 1;
+          const max = capabilities.zoom.max || 2;
+          const zoomValue = min + (newValue / 100) * (max - min);
+          
+          videoTrack.applyConstraints({
+            advanced: [{ zoom: zoomValue }]
+          });
+          console.log('Zoom aplicado:', zoomValue);
+        }
+      } catch (error) {
+        console.error('Error al ajustar zoom:', error);
+      }
+    }
+  }, [videoTrack]);
+  
+  // Ajustar calidad de imagen
+  const setImageQuality = useCallback((qualityLevel) => {
+    setQuality(qualityLevel);
+    if (initialized) {
+      // Reiniciar el escáner con la nueva calidad
+      stopScanner();
+      setTimeout(() => {
+        initScanner();
+      }, 300);
+    }
+  }, [initialized]);
+  
   // Función para detener el escáner
   const stopScanner = useCallback(() => {
     if (initialized) {
@@ -78,13 +167,23 @@ const SimpleBarcodeScanner = ({
           Quagga.offDetected(handleDetectedRef.current);
         }
         Quagga.stop();
+        
+        // Liberar la linterna si estaba encendida
+        if (torchEnabled && videoTrack) {
+          videoTrack.applyConstraints({
+            advanced: [{ torch: false }]
+          }).catch(e => console.error('Error al apagar la linterna:', e));
+          setTorchEnabled(false);
+        }
+        
+        setVideoTrack(null);
         console.log('Escáner detenido');
       } catch (error) {
         console.error('Error al detener Quagga:', error);
       }
       setInitialized(false);
     }
-  }, [initialized]);
+  }, [initialized, torchEnabled, videoTrack]);
 
   // Inicializar el escáner
   const initScanner = useCallback(() => {
@@ -97,28 +196,60 @@ const SimpleBarcodeScanner = ({
         stopScanner();
       }
       
+      // Determinar configuración de calidad
+      let qualityConfig = {};
+      switch (quality) {
+        case 'low':
+          qualityConfig = {
+            width: { min: 400 },
+            height: { min: 300 },
+            aspectRatio: { min: 1, max: 2 }
+          };
+          break;
+        case 'high':
+          qualityConfig = {
+            width: { min: 1280, ideal: 1920 },
+            height: { min: 720, ideal: 1080 },
+            aspectRatio: { min: 1, max: 2 }
+          };
+          break;
+        case 'medium':
+        default:
+          qualityConfig = {
+            width: { min: 640, ideal: 1280 },
+            height: { min: 480, ideal: 720 },
+            aspectRatio: { min: 1, max: 2 }
+          };
+          break;
+      }
+      
       // Configuración de Quagga
       Quagga.init({
         inputStream: {
           type: 'LiveStream',
           constraints: {
-            width: { min: 450 },
-            height: { min: 300 },
+            ...qualityConfig,
             facingMode: 'environment',
-            aspectRatio: { min: 1, max: 2 }
           },
-          target: document.getElementById('scanner-container')
+          target: document.getElementById('scanner-container'),
+          area: { // Definir un área de enfoque más específica
+            top: "0%",    // Área desde arriba 
+            right: "0%",  // Área desde la derecha
+            left: "0%",   // Área desde la izquierda
+            bottom: "0%"  // Área desde abajo
+          }
         },
         locator: {
-          patchSize: 'medium',
-          halfSample: true
+          patchSize: quality === 'low' ? 'x-small' : quality === 'high' ? 'large' : 'medium',
+          halfSample: quality !== 'high' // Deshabilitar halfSample en alta calidad para más precisión
         },
-        numOfWorkers: 2,
-        frequency: 10,
+        numOfWorkers: quality === 'high' ? 4 : quality === 'low' ? 1 : 2,
+        frequency: quality === 'high' ? 5 : 10, // Menor frecuencia = más precisión pero más CPU
         decoder: {
-          readers: ['i2of5_reader'] // Usar ITF por defecto
+          readers: ['i2of5_reader', 'code_128_reader', 'ean_reader', 'ean_8_reader'] // Agregar lectores adicionales
         },
-        locate: true
+        locate: true,
+        debug: false
       }, function(err) {
         if (err) {
           console.error('Error iniciando Quagga:', err);
@@ -127,13 +258,32 @@ const SimpleBarcodeScanner = ({
           return;
         }
         
-        console.log('Quagga inicializado correctamente');
+        console.log('Quagga inicializado correctamente con calidad:', quality);
         Quagga.start();
         setInitialized(true);
         setLoading(false);
         
         // Registrar el evento de detección
         Quagga.onDetected(handleDetectedRef.current);
+        
+        // Obtener la pista de video para controlar la linterna y el zoom
+        try {
+          const videoElement = document.querySelector('#scanner-container video');
+          if (videoElement && videoElement.srcObject) {
+            const track = videoElement.srcObject.getVideoTracks()[0];
+            if (track) {
+              setVideoTrack(track);
+              
+              // Verificar capacidades
+              const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+              if (capabilities.torch) {
+                setHasFlashlight(true);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Error al acceder a la pista de video:', e);
+        }
         
         // Dibujar la máscara oscura alrededor del área de enfoque
         drawFocusArea();
@@ -143,7 +293,7 @@ const SimpleBarcodeScanner = ({
       setError('Ocurrió un error inesperado al iniciar el escáner.');
       setLoading(false);
     }
-  }, [initialized, stopScanner]);
+  }, [initialized, stopScanner, quality, focusAreaSize]);
   
   // Función para dibujar la máscara oscura alrededor del área de enfoque
   const drawFocusArea = () => {
@@ -154,14 +304,17 @@ const SimpleBarcodeScanner = ({
     const width = canvas.width;
     const height = canvas.height;
     
-    // Dimensiones del área de enfoque (rectángulo punteado)
-    const focusWidth = 200;
-    const focusHeight = 100;
+    // Calcular dimensiones del área de enfoque basado en el porcentaje
+    const focusWidthPercent = focusAreaSize;
+    const focusHeightPercent = focusAreaSize / 2; // Mantener proporción
+    
+    const focusWidth = (width * focusWidthPercent) / 100;
+    const focusHeight = (height * focusHeightPercent) / 100;
     const focusX = (width - focusWidth) / 2;
     const focusY = (height - focusHeight) / 2;
     
     // Dibujar un rectángulo negro casi opaco sobre toda la pantalla
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.9)'; // Aumentado a 0.9 para más opacidad
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; // Menos opaco para ver mejor el contexto
     ctx.fillRect(0, 0, width, height);
     
     // Crear un "agujero" en el área de enfoque (borrar el área)
@@ -173,13 +326,34 @@ const SimpleBarcodeScanner = ({
     ctx.globalCompositeOperation = 'source-over';
     
     // Dibujar el borde punteado alrededor del área de enfoque con más brillo
-    ctx.strokeStyle = 'rgba(255, 255, 255, 1)'; // Más brillante para mayor contraste
-    ctx.lineWidth = 3; // Más grueso
-    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = 'rgba(82, 196, 26, 1)'; // Verde brillante para mejor visibilidad
+    ctx.lineWidth = 4; // Más grueso
+    ctx.setLineDash([8, 4]);
     ctx.strokeRect(focusX, focusY, focusWidth, focusHeight);
+    
+    // Dibujar guías de orientación en el centro
+    const centerX = focusX + focusWidth / 2;
+    const centerY = focusY + focusHeight / 2;
+    
+    // Cruz central
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    
+    // Línea horizontal
+    ctx.beginPath();
+    ctx.moveTo(centerX - 15, centerY);
+    ctx.lineTo(centerX + 15, centerY);
+    ctx.stroke();
+    
+    // Línea vertical
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY - 15);
+    ctx.lineTo(centerX, centerY + 15);
+    ctx.stroke();
   };
   
-  // Efecto para redibujar el área de enfoque cuando cambia el tamaño de la ventana
+  // Efecto para redibujar el área de enfoque cuando cambia el tamaño del área o ventana
   useEffect(() => {
     if (initialized) {
       const handleResize = () => {
@@ -187,11 +361,13 @@ const SimpleBarcodeScanner = ({
       };
       
       window.addEventListener('resize', handleResize);
+      drawFocusArea(); // Redibujar cuando cambie el tamaño del área
+      
       return () => {
         window.removeEventListener('resize', handleResize);
       };
     }
-  }, [initialized]);
+  }, [initialized, focusAreaSize]);
   
   // Procesar el código detectado o ingresado manualmente
   const processCode = useCallback((code, isManual = false) => {
@@ -211,6 +387,11 @@ const SimpleBarcodeScanner = ({
     try {
       const successSound = new Audio("data:audio/wav;base64,//uQRAAAAWMSLwUIYAAsYkXgoQwAEaYLWfkWgAI0wWs/ItAAAGDgYtAgAyN+QWaAAihwMWm4G8QQRDiMcCBcH3Cc+CDv/7xA4Tvh9Rz/y8QADBwMWgQAZG/ILNAARQ4GLTcDeIIIhxGOBAuD7hOfBB3/94gcJ3w+o5/5eIAIAAAVwWgQAVQ2ORaIQwEMAJiDg95G4nQL7mQVWI6GwRcfsZAcsKkJvxgxEjzFUgfHoSQ9Qq7KNwqHwuB13MA4a1q/DmBrHgPcmjiGoh//EwC5nGPEmS4RcfkVKOhJf+WOgoxJclFz3kgn//dBA+ya1GhurNn8zb//9NNutNuhz31f////9vt///z+IdAEAAAK4LQIAKobHItEIYCGAExBwe8jcToF9zIKrEdDYIuP2MgOWFSE34wYiR5iqQPj0JIeoVdlG4VD4XA67mAcNa1fhzA1jwHuTRxDUQ//iYBczjHiTJcIuPyKlHQkv/LHQUYkuSi57yQT//uggfZNajQ3Vm//Lnlz//m+//z//o8//3//+///vvvvz//+//cpdAkmDAJChQoSGi4MIlYkAAQkUAT0OdDSUFAGkdXBwICYDNQYEYgtQYHYhWwq6CnQUCJAABHAMXCAAIgDlQIQQMQIEkFswMCggMDGrGyQRQRLwkRAOQUFEmgAAAVYXCi0AAAAAElFTkSuQmCC");
       successSound.play();
+      
+      // Vibrar dispositivo si es posible (proporciona feedback táctil)
+      if (navigator.vibrate) {
+        navigator.vibrate(200);
+      }
     } catch (e) {
       console.error("Error reproduciendo sonido:", e);
     }
@@ -224,7 +405,8 @@ const SimpleBarcodeScanner = ({
       // Validar que el código tenga 10 dígitos
       if (!/^\d{10}$/.test(code)) {
         console.log('Código detectado no tiene 10 dígitos:', code);
-        setError('El código escaneado debe tener 10 dígitos. Intente de nuevo o ingrese manualmente.');
+        // No mostrar error en cada intento para mejorar UX
+        // Solo actualizar el error si es persistente
         return; // Ignorar códigos que no cumplan con el formato requerido
       }
       
@@ -235,8 +417,8 @@ const SimpleBarcodeScanner = ({
           const ctx = configureCanvas('scanner-canvas');
           if (ctx) {
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            ctx.strokeStyle = '#00FF00'; // Verde
-            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#52c41a'; // Verde más brillante
+            ctx.lineWidth = 4;
             ctx.beginPath();
             ctx.moveTo(data.box[0][0], data.box[0][1]);
             data.box.forEach(point => {
@@ -244,6 +426,11 @@ const SimpleBarcodeScanner = ({
             });
             ctx.closePath();
             ctx.stroke();
+            
+            // Agregar texto con el código
+            ctx.font = 'bold 14px Arial';
+            ctx.fillStyle = '#52c41a';
+            ctx.fillText(code, data.box[0][0], data.box[0][1] - 10);
           }
         }
       } catch (e) {
@@ -265,6 +452,9 @@ const SimpleBarcodeScanner = ({
   // Efecto para iniciar/detener el escáner cuando el diálogo se abre/cierra
   useEffect(() => {
     if (open && !initialized) {
+      // Verificar disponibilidad de linterna
+      checkFlashlight();
+      
       // Dar tiempo para que el DOM esté listo
       const timer = setTimeout(() => {
         initScanner();
@@ -280,7 +470,7 @@ const SimpleBarcodeScanner = ({
     return () => {
       stopScanner();
     };
-  }, [open, initialized, initScanner, stopScanner]);
+  }, [open, initialized, initScanner, stopScanner, checkFlashlight]);
 
   // Validar y enviar el formulario
   const handleSubmit = () => {
@@ -397,6 +587,64 @@ const SimpleBarcodeScanner = ({
               }}
             />
             
+            {/* Controles para la cámara (linterna, zoom, área de enfoque) */}
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: '8px',
+                right: '8px',
+                display: 'flex',
+                flexDirection: 'column',
+                zIndex: 20,
+                backgroundColor: 'rgba(0,0,0,0.6)',
+                padding: '8px',
+                borderRadius: '12px',
+              }}
+            >
+              {/* Control de la linterna */}
+              {hasFlashlight && (
+                <Tooltip title={torchEnabled ? "Apagar linterna" : "Encender linterna"}>
+                  <IconButton
+                    onClick={toggleTorch}
+                    sx={{ 
+                      color: torchEnabled ? '#ffeb3b' : 'white',
+                      backgroundColor: torchEnabled ? 'rgba(0,0,0,0.4)' : 'transparent',
+                      mb: 1,
+                      '&:hover': {
+                        backgroundColor: torchEnabled ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.2)'
+                      }
+                    }}
+                    size="small"
+                  >
+                    {torchEnabled ? <FlashlightOnIcon /> : <FlashlightOffIcon />}
+                  </IconButton>
+                </Tooltip>
+              )}
+              
+              {/* Control para ajustar el área de enfoque */}
+              <Tooltip title="Ajustar área de enfoque">
+                <IconButton
+                  onClick={() => {
+                    // Alternar entre tres tamaños: pequeño, mediano, grande
+                    const newSize = focusAreaSize === 50 ? 70 : 
+                                   focusAreaSize === 70 ? 90 : 50;
+                    setFocusAreaSize(newSize);
+                  }}
+                  sx={{ 
+                    color: 'white',
+                    mb: 1,
+                    '&:hover': {
+                      backgroundColor: 'rgba(255,255,255,0.2)'
+                    }
+                  }}
+                  size="small"
+                >
+                  <AdjustIcon fontSize={focusAreaSize === 50 ? 'small' : 
+                                        focusAreaSize === 70 ? 'medium' : 'large'} />
+                </IconButton>
+              </Tooltip>
+            </Box>
+            
             {/* Indicador de carga */}
             {loading && (
               <Box
@@ -424,7 +672,34 @@ const SimpleBarcodeScanner = ({
             )}
           </Box>
           
-          <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center' }}>
+          {/* Controles de cámara (calidad y reinicio) */}
+          <Box sx={{ mt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {/* Selector de calidad */}
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Typography variant="caption" sx={{ mr: 1 }}>
+                Calidad:
+              </Typography>
+              <Select
+                value={quality}
+                onChange={(e) => setImageQuality(e.target.value)}
+                size="small"
+                variant="outlined"
+                sx={{ 
+                  minWidth: 100, 
+                  height: 32,
+                  fontSize: '0.75rem',
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderRadius: '16px'
+                  }
+                }}
+              >
+                <MenuItem value="low">Baja</MenuItem>
+                <MenuItem value="medium">Media</MenuItem>
+                <MenuItem value="high">Alta</MenuItem>
+              </Select>
+            </Box>
+            
+            {/* Botón para reiniciar la cámara */}
             <Button 
               onClick={() => {
                 stopScanner();

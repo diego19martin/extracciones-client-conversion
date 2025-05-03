@@ -20,7 +20,6 @@ const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) =>
   const canConfirm = summary && results && results.length > 0;
 
   // Función para normalizar y validar un resultado de máquina
-  // Función para normalizar y validar un resultado de máquina
   const normalizeResult = (result) => {
     // Asegurarse de que todos los campos numéricos sean números válidos
     const normalizedResult = {
@@ -61,6 +60,37 @@ const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) =>
 
       console.log('Respuesta del servidor:', response);
 
+      // Verificar si se excluyeron máquinas inválidas
+      if (response.data.excludedMachines && response.data.excludedMachines.length > 0) {
+        // Mostrar una alerta informativa sobre las máquinas excluidas
+        await Swal.fire({
+          icon: 'info',
+          title: 'Máquinas no registradas excluidas',
+          html: `
+            <div style="text-align: left;">
+              <p>Se han excluido <strong>${response.data.excludedMachines.length}</strong> máquinas de la conciliación 
+              porque no están registradas en el sistema.</p>
+              
+              <div style="margin-top: 15px; margin-bottom: 15px;">
+                <p style="font-weight: 500;">Máquinas excluidas:</p>
+                <div style="max-height: 150px; overflow-y: auto; margin-top: 10px; padding: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                  ${response.data.excludedMachines.map(id => 
+                    `<div style="margin: 5px 0; padding: 5px; background-color: #f5f5f5; border-radius: 4px;">Máquina #${id}</div>`
+                  ).join('')}
+                </div>
+              </div>
+              
+              <div style="margin-top: 15px; padding: 10px; background-color: #fff3e0; border-radius: 4px;">
+                <p style="margin: 0; color: #e65100; font-size: 14px;">
+                  <i class="fa fa-exclamation-triangle"></i> Estas máquinas deben ser registradas en el sistema antes de incluirlas en la conciliación.
+                </p>
+              </div>
+            </div>
+          `,
+          confirmButtonText: 'Entendido'
+        });
+      }
+
       // Mostrar mensaje de éxito
       Swal.fire({
         icon: 'success',
@@ -68,8 +98,15 @@ const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) =>
         html: `
           <p>La conciliación de la zona <strong>${conciliacionData.zona}</strong> ha sido confirmada correctamente.</p>
           <p style="margin-top: 10px; color: #4caf50; font-size: 0.9em;">ID de conciliación: ${response.data.id}</p>
+          ${response.data.stats ? `
+          <div style="margin-top: 15px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: left;">
+            <p style="margin: 0 0 5px 0; font-weight: 500;">Estadísticas:</p>
+            <p style="margin: 3px 0; font-size: 13px;">Total de máquinas: ${response.data.stats.totalMachines}</p>
+            <p style="margin: 3px 0; font-size: 13px;">Máquinas válidas: ${response.data.stats.validMachines}</p>
+            <p style="margin: 3px 0; font-size: 13px;">Máquinas excluidas: ${response.data.stats.invalidMachines}</p>
+          </div>` : ''}
         `,
-        timer: 5000,
+        timer: 7000,
         timerProgressBar: true
       });
 
@@ -212,15 +249,20 @@ const ConfirmZoneButton = ({ summary, results, datFile, xlsFile, onSuccess }) =>
             <h4 style="margin-top: 0; font-size: 16px;">Resumen de la conciliación:</h4>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
               <div>
-                <p style="margin: 5px 0; font-size: 14px;">Total esperado: <strong>$${summary?.totalExpected?.toLocaleString('es-AR') || 0}</strong></p>
+                <p style="margin: 5px 0; font-size: 14px;">Total esperado: <strong>${summary?.totalExpected?.toLocaleString('es-AR') || 0}</strong></p>
                 <p style="margin: 5px 0; font-size: 14px;">Máquinas coincidentes: <strong>${summary?.matchingMachines || 0}</strong></p>
                 <p style="margin: 5px 0; font-size: 14px;">Máquinas faltantes: <strong>${summary?.missingMachines || 0}</strong></p>
               </div>
               <div>
-                <p style="margin: 5px 0; font-size: 14px;">Total contado: <strong>$${summary?.totalCounted?.toLocaleString('es-AR') || 0}</strong></p>
+                <p style="margin: 5px 0; font-size: 14px;">Total contado: <strong>${summary?.totalCounted?.toLocaleString('es-AR') || 0}</strong></p>
                 <p style="margin: 5px 0; font-size: 14px;">Máquinas con discrepancia: <strong>${summary?.nonMatchingMachines || 0}</strong></p>
                 <p style="margin: 5px 0; font-size: 14px;">Máquinas extra: <strong>${summary?.extraMachines || 0}</strong></p>
               </div>
+            </div>
+            <div style="margin-top: 10px; padding: 8px; background-color: #fffde7; border-radius: 4px; border-left: 4px solid #fbc02d;">
+              <p style="margin: 0; font-size: 12px; color: #5d4037;">
+                <strong>Nota:</strong> Las máquinas que no están registradas en el sistema serán excluidas automáticamente de la conciliación.
+              </p>
             </div>
           </div>
           <p>Usuario que confirma:<p>
