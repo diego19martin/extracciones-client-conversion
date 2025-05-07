@@ -479,7 +479,7 @@ export default function Range({ props }) {
   };
 
   const handleClick = async () => {
-    if (listadoFinal.length === 0) {
+    if (resumen.length === 0) {
       Swal.fire({
         icon: 'warning',
         title: 'Error',
@@ -490,22 +490,40 @@ export default function Range({ props }) {
 
     setIsLoading(true);
     try {
-      console.log('Enviando máquinas:', listadoFinal);
+      console.log('Enviando configuración:');
+      console.log('Límite Pesos:', valuePesos);
+      console.log('Límite Dólares:', valueDolares);
+      console.log('Cantidad de máquinas:', resumen.length);
 
-      // Enviar la configuración y las máquinas filtradas al backend
-      await postMaquinas({ machines: resumen, valuePesos, valueDolares });
-      await postConfig({ valuePesos, valueDolares });
+      // Enviar primero la configuración
+      const configResponse = await postConfig({
+        valuePesos: valuePesos,
+        valueDolares: valueDolares
+      });
+      console.log('Respuesta de configuración:', configResponse);
+
+      // Luego enviar las máquinas con los mismos límites
+      const machinesResponse = await postMaquinas({
+        machines: resumen,
+        valuePesos: valuePesos,
+        valueDolares: valueDolares
+      });
+      console.log('Respuesta de máquinas:', machinesResponse);
 
       Swal.fire({
         icon: 'success',
         title: 'Configuración confirmada',
         text: 'Los datos de límites han sido enviados correctamente.',
       });
+
+      // Recargar el listado filtrado
+      loadFilteredData();
     } catch (error) {
+      console.error('Error al enviar la configuración:', error);
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: 'Hubo un problema al enviar la configuración.',
+        text: 'Hubo un problema al enviar la configuración: ' + error.message,
       });
     } finally {
       setIsLoading(false);
