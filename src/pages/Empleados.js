@@ -25,7 +25,7 @@ export default function GestionEmpleados() {
 
   const fetchEmployees = async () => {
     try {
-      const response = await axios.get(`${API_URL}/employees`);
+      const response = await axios.get(`${API_URL}/api/employees`);
       setEmployees(response.data);
     } catch (error) {
       console.error('Error al obtener empleados:', error);
@@ -35,7 +35,7 @@ export default function GestionEmpleados() {
   const handleAddEmployee = async () => {
     if (newEmployee.nombre) {
       try {
-        const response = await axios.post(`${API_URL}/employees`, newEmployee);
+        const response = await axios.post(`${API_URL}/api/employees`, newEmployee);
         setEmployees([...employees, response.data]);
         setNewEmployee({ nombre: '' });
         handleCloseAddDialog();
@@ -66,7 +66,7 @@ export default function GestionEmpleados() {
   const handleConfirmDelete = async () => {
     if (employeeToDelete) {
       try {
-        const response = await fetch(`${API_URL}/employees/${employeeToDelete.empleado_id}`, {
+        const response = await fetch(`${API_URL}/api/employees/${employeeToDelete.empleado_id}`, {
           method: 'DELETE',
         });
 
