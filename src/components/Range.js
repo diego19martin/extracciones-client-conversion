@@ -434,8 +434,11 @@ export default function Range({ props }) {
         // También cargar la última configuración
         const configResponse = await axios.get(`${API_URL}/api/getConfig`);
         if (configResponse.data) {
-          setValuePesos(configResponse.data.limite || 0);
-          setValueDolares(configResponse.data.limiteDolar || 1);
+          const limitePesos = parseFloat(configResponse.data.limite);
+          const limiteDolares = parseFloat(configResponse.data.limiteDolar);
+
+          const validLimitePesos = (!isNaN(limitePesos) && limitePesos >= 0) ? limitePesos : 0;
+          const validLimiteDolares = (!isNaN(limiteDolares) && limiteDolares >= 1) ? limiteDolares : 1;
         }
       }
     } catch (error) {
