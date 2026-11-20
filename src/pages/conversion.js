@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import * as XLSX from "xlsx";
-import { getTable, postMaquinas } from "../api/conversion.api";
+import { getTable, postMaquinas, getUltimaCarga } from "../api/conversion.api";
 import Range from "../components/Range.js";
 import { Header } from "../components/Header";
 import io from 'socket.io-client';
@@ -15,7 +15,8 @@ import {
   Paper,
   Typography,
   Box,
-  Button
+  Button,
+  Alert
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
@@ -44,35 +45,76 @@ const API_URL = process.env.NODE_ENV === 'production'
   console.log(API_URL);
   
 
+// Convierte el listado guardado en el servidor al formato que usa la pantalla
+const listadoAItems = (filas) =>
+  (Array.isArray(filas) ? filas : [])
+    .filter((f) => f && f.maquina && String(f.maquina) !== '0')
+    .map((f) => ({
+      machine: f.maquina,
+      location: f.location,
+      bill: parseFloat(f.bill) || 0,
+      zona: f.zona,
+      moneda: f.moneda,
+    }));
+
+const formatFechaHora = (valor) => {
+  if (!valor) return '';
+  const d = new Date(valor);
+  return isNaN(d) ? '' : d.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+};
+
 function Conversion() {
   const [items, setItems] = useState([0]);
   const [table, setTable] = useState([]);
-  
+  const [ultimaCarga, setUltimaCarga] = useState(null);
+  const [archivoManual, setArchivoManual] = useState(false);
+
+  // Trae el listado vigente (cargado automáticamente o a mano) y su origen
+  const cargarListadoVigente = useCallback(async (reemplazarItems) => {
+    try {
+      const respuesta = await getTable();
+      setTable(respuesta.data);
+      if (reemplazarItems) {
+        const vigentes = listadoAItems(respuesta.data);
+        if (vigentes.length > 0) setItems(vigentes);
+      }
+    } catch (error) {
+      console.error('Error fetching initial data:', error);
+    }
+    try {
+      setUltimaCarga(await getUltimaCarga());
+    } catch (error) {
+      console.error('Error al obtener la última carga:', error);
+    }
+  }, []);
+
   useEffect(() => {
+    cargarListadoVigente(true);
+  }, [cargarListadoVigente]);
 
+  useEffect(() => {
     const socket = io(API_URL); // Usar la URL adecuada
-
-    // const socket = io('http://localhost:4000/'); 
 
     socket.on('tableUpdate', (updatedTable) => {
       setTable(updatedTable);
     });
 
-    async function fetchInitialData() {
-      try {
-        const respuesta = await getTable();
-        setTable(respuesta.data);
-      } catch (error) {
-        console.error('Error fetching initial data:', error);
+    // Llegó un listado nuevo (ej. carga automática del mail de Tesorería).
+    // Si el usuario está trabajando con un archivo cargado a mano, no se lo pisamos.
+    socket.on('listadoCargado', (info) => {
+      if (info && info.origen === 'manual') {
+        // Se confirmó una carga manual: ese archivo pasa a ser el listado vigente
+        setArchivoManual(false);
+        cargarListadoVigente(true);
+      } else {
+        cargarListadoVigente(!archivoManual);
       }
-    }
-
-    fetchInitialData();
+    });
 
     return () => {
       socket.disconnect();
     };
-  }, []);
+  }, [cargarListadoVigente, archivoManual]);
 
   const readExcel = (file) => {
     const promise = new Promise((resolve, reject) => {
@@ -94,6 +136,7 @@ function Conversion() {
     });
 
     promise.then((d) => {
+      setArchivoManual(true);
       setItems(d);
     });
   };
@@ -120,6 +163,23 @@ function Conversion() {
           Fecha de lista cargada: {table[0]?.fecha ? formatDate(table[0].fecha) : 'N/A'}
         </Typography>
       </Box>
+
+      {ultimaCarga && (
+        <Alert
+          severity={ultimaCarga.origen === 'automatica' ? 'info' : 'success'}
+          sx={{ maxWidth: 900, mx: 'auto', mb: 2 }}
+        >
+          <strong>
+            Última carga: {ultimaCarga.origen === 'automatica' ? 'automática (mail "Archivo para App")' : 'manual'}
+          </strong>{' '}
+          — {formatFechaHora(ultimaCarga.fecha)} · {Number(ultimaCarga.maquinas).toLocaleString('es-AR')} máquinas ·{' '}
+          {Number(ultimaCarga.a_extraer).toLocaleString('es-AR')} a extraer con límite $
+          {Number(ultimaCarga.limite).toLocaleString('es-AR')}.
+          {archivoManual
+            ? ' Estás viendo el archivo que cargaste a mano: confirmá la configuración para reemplazar el listado.'
+            : ' Podés ajustar el límite y confirmar, o cargar otro archivo a mano.'}
+        </Alert>
+      )}
 
       <Range props={items} />
 

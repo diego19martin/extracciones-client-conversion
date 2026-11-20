@@ -58,6 +58,11 @@ export const postGenerateReport = async () => {
 };
 
 
+export const getUltimaCarga = async () => {
+    const res = await axios.get(`${API_URL}/api/ultimaCarga`);
+    return res.data;
+};
+
 export const getListadoFiltrado = async () => {
     const res = await axios.get(`${API_URL}/api/getListadoFiltrado`);
     return res.data;
