@@ -25,7 +25,9 @@ import {
   Stack,
   Container,
   Tooltip,
-  Badge
+  Badge,
+  TextField,
+  InputAdornment
 } from '@mui/material';
 import { postConfig, postGenerateReport, postMaquinas, postGenerateDailyReport } from '../api/conversion.api';
 import Swal from 'sweetalert2';
@@ -35,8 +37,16 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
 function valuetext(value) {
-  return `${value}°C`;
+  return `$${value}`;
 }
+
+// Límite de pesos: la barra llega por defecto hasta TOPE_BARRA_PESOS.
+// Si se escribe un valor mayor en el campo numérico, la barra se estira sola
+// para incluirlo, así el límite puede subirse sin cambiar el código.
+const TOPE_BARRA_PESOS = 300000;
+const PASO_PESOS = 10000;
+const topeBarraPesos = (valor) =>
+  Math.max(TOPE_BARRA_PESOS, Math.ceil((Number(valor) || 0) / PASO_PESOS) * PASO_PESOS);
 
 // Selección dinámica del endpoint
 const API_URL = process.env.NODE_ENV === 'production'
@@ -430,22 +440,31 @@ export default function Range({ props }) {
       const response = await axios.get(`${API_URL}/api/getListadoFiltrado`);
       if (response.data && response.data.length > 0) {
         setListadoFinal(response.data);
-
-        // También cargar la última configuración
-        const configResponse = await axios.get(`${API_URL}/api/getConfig`);
-        if (configResponse.data) {
-          const limitePesos = parseFloat(configResponse.data.limite);
-          const limiteDolares = parseFloat(configResponse.data.limiteDolar);
-
-          const validLimitePesos = (!isNaN(limitePesos) && limitePesos >= 0) ? limitePesos : 0;
-          const validLimiteDolares = (!isNaN(limiteDolares) && limiteDolares >= 1) ? limiteDolares : 1;
-        }
       }
     } catch (error) {
       console.error('Error al cargar listado filtrado:', error);
     } finally {
       setLoadingData(false);
     }
+  }, []);
+
+  // Al abrir la pantalla, mostrar el último límite guardado (solo una vez,
+  // para no pisar lo que el usuario mueva en la barra)
+  useEffect(() => {
+    const loadSavedConfig = async () => {
+      try {
+        const configResponse = await axios.get(`${API_URL}/api/getConfig`);
+        if (configResponse.data) {
+          const limitePesos = parseFloat(configResponse.data.limite);
+          const limiteDolares = parseFloat(configResponse.data.limiteDolar);
+          setValuePesos((!isNaN(limitePesos) && limitePesos >= 0) ? limitePesos : 0);
+          setValueDolares((!isNaN(limiteDolares) && limiteDolares >= 1) ? limiteDolares : 1);
+        }
+      } catch (error) {
+        console.error('Error al cargar la configuración guardada:', error);
+      }
+    };
+    loadSavedConfig();
   }, []);
 
   // Cuando cambia el filtro, reset a la primera página
@@ -474,6 +493,15 @@ export default function Range({ props }) {
   const handleChangePesos = (event, newValue) => {
     setValuePesos(newValue);
     updateSummary(newValue, valueDolares, resumen);  // Solo actualizar el resumen aquí
+  };
+
+  // Ingreso manual del límite en pesos (permite superar el tope de la barra)
+  const handleInputPesos = (event) => {
+    const raw = event.target.value;
+    const parsed = raw === '' ? 0 : Math.max(0, Math.round(Number(raw)));
+    if (isNaN(parsed)) return;
+    setValuePesos(parsed);
+    updateSummary(parsed, valueDolares, resumen);
   };
 
   const handleChangeDolares = (event, newValue) => {
@@ -634,12 +662,30 @@ export default function Range({ props }) {
             valueLabelDisplay="auto"
             getAriaValueText={valuetext}
             min={0}
-            max={100000}
-            step={5000}
+            max={topeBarraPesos(valuePesos)}
+            step={PASO_PESOS}
           />
-          <Typography variant="body2" color="text.secondary">
-            Límite seleccionado: ${valuePesos.toLocaleString('en-US')}
-          </Typography>
+          <Stack
+            direction={isMobile ? 'column' : 'row'}
+            spacing={2}
+            alignItems={isMobile ? 'stretch' : 'center'}
+            justifyContent="space-between"
+          >
+            <Typography variant="body2" color="text.secondary">
+              Límite seleccionado: ${valuePesos.toLocaleString('en-US')}
+            </Typography>
+            <TextField
+              label="Límite exacto (Pesos)"
+              type="number"
+              size="small"
+              value={valuePesos}
+              onChange={handleInputPesos}
+              inputProps={{ min: 0, step: PASO_PESOS }}
+              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+              helperText="Para superar el tope de la barra, escribí el monto acá"
+              sx={{ minWidth: 240 }}
+            />
+          </Stack>
         </Box>
 
         <Box sx={{ my: 3 }}>
